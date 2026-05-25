@@ -216,3 +216,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# =============================================================================
+# Projekat: preuzeti i generisani fajlovi (ne commitovati na GitHub)
+# =============================================================================
+
+# Preuzeti podaci sa Zenodo-a (h5ad, CoDi CSV, RDS referenca, metadata)
+data/raw/*
+!data/raw/.gitkeep
+
+# Obradeni AnnData objekat nakon pipeline-a
+data/processed/*
+!data/processed/.gitkeep
+
+# Rezultati analize (tabele, figure)
+results/figures/*
+!results/figures/.gitkeep
+results/tables/*
+!results/tables/.gitkeep
+
+# Generisana PowerPoint prezentacija (scenario za video ostaje u repo-u)
+deliverables/*.pptx
+
+# Veliki / binarni formati (ako se pojave van gore navedenih foldera)
+*.h5ad
+*.h5seurat
+*.rds
+*.annoy

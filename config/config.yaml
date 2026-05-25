@@ -1,0 +1,50 @@
+project_name: "Single-Cell Analysis of Immune Response to Nanoplastic Particles"
+
+data:
+  zenodo_record_id: "15866724"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  results_dir: "results"
+
+azimuth:
+  record_id: "4546839"
+  reference_file: "ref.Rds"
+
+samples:
+  filtered_feature_bc_matrix:
+    condition: "PSNP_40nm"
+  filtered_feature_bc_matrix_Sample2:
+    condition: "PSNP_200nm"
+  filtered_feature_bc_matrix_Sample3:
+    condition: "PSNP_mix_40_200"
+  filtered_feature_bc_matrix_Sample4:
+    condition: "control"
+
+qc:
+  min_genes: 200
+  max_genes: 7000
+  max_mt_percent: 15
+  min_counts: 500
+
+preprocessing:
+  integration_method: "combat"  # use "harmony" only if harmonypy is installed
+  n_hvgs: 3000
+  n_pcs: 30
+  neighbors_k: 15
+  leiden_resolution: 0.5
+
+de:
+  min_cells_per_group: 20
+  logfc_threshold: 0.25
+  pval_adj_threshold: 0.05
+
+markers:
+  T_cell: ["CD3D", "CD3E", "TRBC1"]
+  CD4_T: ["IL7R", "LTB", "MALAT1"]
+  CD8_T_cytotoxic: ["NKG7", "GNLY", "PRF1", "GZMB"]
+  B_cell: ["MS4A1", "CD79A", "CD74"]
+  NK_cell: ["NKG7", "KLRD1", "TRAC"]
+  Monocyte_CD14: ["LYZ", "S100A8", "S100A9", "CTSS"]
+  Monocyte_CD16: ["FCGR3A", "LST1", "MS4A7"]
+  DC: ["FCER1A", "CST3"]
+  Platelet: ["PPBP", "PF4"]

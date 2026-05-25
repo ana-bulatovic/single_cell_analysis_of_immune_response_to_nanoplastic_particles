@@ -1,0 +1,28 @@
+name: nanoplastic-scRNA
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pip
+  - r-base=4.3
+  - r-seurat
+  - r-seuratobject
+  - r-seuratdisk
+  - r-azimuth
+  - r-ggplot2
+  - r-dplyr
+  - r-readr
+  - pip:
+      - scanpy>=1.10
+      - anndata>=0.10
+      - pandas>=2.2
+      - numpy>=1.26
+      - matplotlib>=3.8
+      - seaborn>=0.13
+      - scikit-learn>=1.5
+      - harmonypy>=0.0.10
+      - gseapy>=1.1
+      - python-pptx>=1.0
+      - pyyaml>=6.0
+      - requests>=2.32
