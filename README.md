@@ -126,11 +126,19 @@ python scripts/make_slides.py
 
 Izlaz: `deliverables/nanoplastic_scRNA_results.pptx`
 
-## 7) Predlog strukture za video (5–10 min)
+## 7) Word dokumentacija (objašnjenje koda i genomike)
+
+```bash
+python scripts/generate_word_documentation.py
+```
+
+Izlaz: `deliverables/Project_Documentation.docx`
+
+## 8) Predlog strukture za video (5–10 min)
 
 Kratak scenario je u fajlu `deliverables/video_script.md`.
 
-## 8) Glavni output fajlovi
+## 9) Glavni output fajlovi
 
 - `data/processed/integrated_annotated.h5ad`
 - `results/figures/umap_condition.png`
