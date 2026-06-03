@@ -234,6 +234,8 @@ results/figures/*
 !results/figures/.gitkeep
 results/tables/*
 !results/tables/.gitkeep
+results/run_logs/*
+!results/run_logs/.gitkeep
 
 # Generisana PowerPoint prezentacija (scenario za video ostaje u repo-u)
 deliverables/*.pptx

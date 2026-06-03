@@ -1,0 +1,346 @@
+=== Notes.docx ===
+[Normal] Single-cell analysis of immune response to nanoplastic particles
+[Normal] 1. Biological context
+[Normal] Nanoplastics are very small plastic particles (often in the nanometer range). When they enter the blood, they can interact with immune cells in peripheral blood. This project studies whether particle size changes that response:
+[Normal] All four samples come from one donor. Cells are PBMC (peripheral blood mononuclear cells): mainly T cells, B cells, NK cells, monocytes, and some dendritic cells.
+[Normal] We use single-cell RNA sequencing (scRNA-seq). Instead of averaging RNA across millions of mixed cells (bulk RNA-seq), you measure RNA in each cell separately. That helps see:
+[Normal] Which cell types respond to nanoplastics?
+[Normal] Which genes change in each type?
+[Normal] Are effects specific to 40 nm, 200 nm, or only seen in the mixture?
+[Normal] The scientific question: How does nanoparticle size reshape the immune transcriptome at single-cell resolution?
+[Normal] 2. Data
+[Normal] Zenodo (https://zenodo.org) is a free, open repository for research data, software, and publications. Researchers use it as cloud storage for datasets:
+[Normal] Each upload gets a permanent DOI (e.g. 10.5281/zenodo.15866724)
+[Normal] Data are public (this dataset uses an open license, CC BY 4.0)
+[Normal] Others can download the same files and reproduce the analysis
+[Normal] Our main dataset:
+[Normal] https://zenodo.org/records/15866724
+[Normal] 2.1 File download_data.py:
+[Normal] 1. Load config/config.yaml
+[Normal] → zenodo_record_id: "15866724"
+[Normal] → azimuth.record_id: "4546839" (optional)
+[Normal] 2. GET https://zenodo.org/api/records/15866724
+[Normal] → JSON with file list, sizes, download links
+[Normal] 3. Save zenodo_record.json in data/raw/
+[Normal] (metadata: title, description, DOI, checksums — not expression data)
+[Normal] 4. For each file ending in .h5ad, .csv, .rds, or .annoy:
+[Normal] → download to data/raw/<filename>
+[Normal] → if file already exists → [SKIP]
+[Normal] 5. Repeat steps 2–4 for record 4546839 (Azimuth reference)
+[Normal] → zenodo_record_4546839.json + ref.Rds + idx.annoy
+[Normal] Stream download: files are written in 8 KB chunks so a ~200 MB .h5ad is not loaded entirely into RAM at once.
+[Normal] 2.2 What ends up in data/raw/ after download:
+[Normal] A) Main dataset (Zenodo record 15866724) — ~805 MB
+[Normal] 1. Four .h5ad files (core scRNA-seq data)
+[Normal] Inside each file (AnnData / Scanpy):
+[Normal] adata.X — UMI/read counts per cell and gene (already filtered in the published pipeline)
+[Normal] adata.obs — one row per cell (barcode, QC metrics if present)
+[Normal] adata.var — one row per gene (gene symbols)
+[Normal] The name filtered_feature_bc_matrix comes from the 10x Genomics format: a feature–barcode matrix that has already been filtered (low-quality cells removed before publication).
+[Normal] Mapping in your config.yaml:
+[Normal] 2. Four *_CoDi_KLD.csv files (reference cell-type labels)
+[Normal] What CoDi is: an external model that predicts a cell type for each cell (e.g. CD4+ T cell, B cell, CD14+ monocyte).
+[Normal] Example columns:
+[Normal] In our pipeline, CoDi is used to compare with marker-based labels (load_codi_annotations), not as the only source of truth.
+[Normal] 3. zenodo_record.json (a few KB)
+[Normal] A copy of the Zenodo API response
+[Normal] Title, description, DOI, file list, checksums
+[Normal] Useful for citations in your report; not used in expression analysis
+[Normal] B) Azimuth reference (Zenodo record 4546839) — ~82 MB
+[Normal] Azimuth is a tool from the Satija Lab (same group behind Seurat) for automatic cell-type annotation in single-cell data. Instead of you picking marker genes by hand, it:
+[Normal] Takes your cells (query dataset)
+[Normal] Compares them to a large reference atlas of well-characterized PBMC cells
+[Normal] Assigns each cell a predicted cell type at three levels of detail
+[Normal] If config.yaml has azimuth.record_id: "4546839", the script also downloads:
+[Normal] Used by scripts/azimuth_annotation.R to map cells onto the Satija lab PBMC reference.
+[Normal] We have three ways to label cells:
+[Normal] Overview
+[Normal] Data comes from Zenodo, an open repository (DOI: 10.5281/zenodo.15866724). The script download_data.py fetches four AnnData (.h5ad) files with scRNA-seq measurements of PBMC cells under four conditions (40 nm, 200 nm, mixture, control), plus CoDi CSV files for reference cell-type labels and optionally the Azimuth reference (ref.Rds, idx.annoy). Everything is stored in data/raw/. The pipeline then loads the .h5ad files and runs QC, integration, clustering, differential expression, and pathway analysis.
+[Normal] 3. How genes and cells are represented — and how they relate
+[Normal] 3.1 The basic idea: a matrix
+[Normal] scRNA-seq data is stored as a count matrix:
+[Normal] Each row = one cell (one biological unit).
+[Normal] Each column = one gene (one feature you measure).
+[Normal] Each value = how many UMIs / reads were detected for that gene in that cell (expression strength). Approximate number of captured mRNA molecules from the gene were detected after sequencing and deduplication, reflecting how highly that gene is transcribed in that cell relative to other genes and other cells.
+[Normal] So the relationship is: One cell has many genes measured; one gene is measured in many cells. In code (Scanpy / AnnData), this is usually stored as adata.X: cells × genes (rows = cells, columns = genes in AnnData convention).
+[Normal] 3.2 What is a “cell” in the data?
+[Normal] Each captured cell gets:
+[Normal] Barcode — unique ID, e.g. AAACCCAAGACGCATG-1
+[Normal] In adata.obs_names (row index of the matrix).
+[Normal] Metadata (obs) — information about the cell, not expression:
+[Normal] sample_id — which file / batch (Sample2, Sample4, …)
+[Normal] condition — PSNP_40nm, PSNP_200nm, PSNP_mix_40_200, control
+[Normal] cell_type_marker — T cell, B cell, monocyte, … (after annotation)
+[Normal] cluster — Leiden cluster number
+[Normal] QC: n_genes_by_counts, total_counts, pct_counts_mt
+[Normal] Cell = identity (barcode) + metadata (labels) + expression profile (thousands of numbers)
+[Normal] 3.3 What is a “gene” in the data?
+[Normal] Each gene has:
+[Normal] Gene symbol — e.g. CD3D, LYZ, ISG15
+[Normal] In adata.var_names (column index).
+[Normal] Optional gene metadata (var) — e.g. whether it’s highly variable (highly_variable), mitochondrial (mt).
+[Normal] A gene is a column: its values across all cells form an expression vector. That is a list of expression values (UMI counts), one number per cell, showing how strongly that gene is detected across the entire dataset.
+[Normal] For example, the gene LYZ might have values [2, 120, 3, …] across thousands of cells—high in monocytes, low in T cells. Differential expression analysis compares these vectors between conditions (e.g. control vs 40 nm exposure) to see whether a gene is up- or down-regulated.
+[Normal] 3.4 Relationship between cells and genes (intuition)
+[Normal] GENES (features)
+[Normal] CD3D   LYZ   MS4A1  ...
+[Normal] ┌─────────────────────────
+[Normal] Cell 1    │  high  low   low      →  T cell profile
+[Normal] (T cell)  │
+[Normal] ├─────────────────────────
+[Normal] Cell 2    │  low   high  low      →  Monocyte profile
+[Normal] (mono) │
+[Normal] ├─────────────────────────
+[Normal] Cell 3    │  low   low   high     →  B cell profile
+[Normal] (B cell)  │
+[Normal] └─────────────────────────
+[List Paragraph] Similar cells → similar rows
+[Normal] Each row is one cell’s expression across all genes. Cells of the same type (e.g. two T cells) tend to have similar values in the same columns, so their rows look alike. That’s why they cluster together on a UMAP.
+[List Paragraph] Marker genes → columns high only in certain cell types
+[Normal] A marker gene is strongly expressed in one cell type and weak elsewhere. That column is high in rows of that type (e.g. LYZ high in monocytes) and low in others—used to label cell types.
+[List Paragraph] DE analysis → compare gene columns within one cell type (control vs 40 nm)
+[Normal] You first keep only one cell type (same rows). Then, for each gene (column), you test whether expression differs between control and 40 nm cells. That finds genes up- or down-regulated by treatment in that type, without mixing T cells, B cells, etc.
+[Normal] 3.5 AnnData: how Python organizes this
+[Normal] AnnData = annotated matrix. Main pieces:
+[Normal] Relationship rule:
+[Normal] adata.obs has same number of rows as adata.X.
+[Normal] adata.var has same number of rows as adata.X has columns.
+[Normal] Row i of X = expression of all genes in cell i.
+[Normal] 3.6 From raw counts to what we analyze
+[Normal] Pipeline steps change the numbers but not the cell–gene structure:
+[Normal] Raw counts (layers["counts"])
+[Normal] Integer counts from sequencing.
+[Normal] Normalization (normalize_total + log1p)
+[Normal] Cells are sequenced to different depths; you scale so comparisons are fair.
+[Normal] Log makes statistics more stable.
+[Normal] HVG selection
+[Normal] Keep ~3000 genes that vary most across cells; drop the rest from downstream PCA/clustering.
+[Normal] PCA / Combat / UMAP
+[Normal] Compress and correct cells using gene patterns.
+[Normal] UMAP: each cell → 2 points (x, y) for plotting.
+[Normal] Annotation
+[Normal] Each cell gets a type by checking which marker genes are highest.
+[Normal] DE
+[Normal] Within one cell type, compare each gene’s distribution: exposure vs control.
+[Normal] So genes and cells stay linked: you never analyze genes without knowing which cells they came from, and you ne
+[Normal] 3.7 How your four conditions fit in
+[Normal] All cells share the same genes (columns). They differ by metadata:
+[Normal] Same matrix structure
+[Normal] ├── subset: condition == "control"     → control cells
+[Normal] ├── subset: condition == "PSNP_40nm" → 40 nm cells
+[Normal] ├── subset: condition == "PSNP_200nm"→ 200 nm cells
+[Normal] └── subset: condition == "PSNP_mix..." → mix cells
+[Normal] Composition analysis — count cells per type per condition (rows grouped by labels).
+DE — for one cell type, compare gene columns between two conditions.
+Size-specific — compare sets of genes that changed in 40 nm vs 200 nm vs mix.
+[Normal] 3.8 CoDi and markers — two ways to label cells
+[Normal] All methods assign one label per cell; genes are still the evidence underneath.
+[Normal] 3.9 One concrete example
+[Normal] Question: Do 40 nm particles activate monocytes?
+[Normal] Select cells where cell_type_marker == Monocyte_CD14.
+[Normal] Split into control vs PSNP_40nm.
+[Normal] For each gene (column), test if expression differs (Wilcoxon → DE table).
+[Normal] Significant genes → pathway enrichment (e.g. inflammation, interferon).
+[Normal] Cells = which population you compare.
+[Normal] Genes = what actually changed inside that population.
+
+=== Project_Documentation.docx ===
+[Normal] Single-Cell Analysis of Immune Response
+to Nanoplastic Particles
+
+Code & Genomic Informatics Guide
+[Normal] Master project – Genomic Informatics
+[Heading 1] Part 1: Project Overview (Detailed)
+[Heading 2] 1.1 Biological context
+[Normal] Nanoplastics are very small plastic particles, often in the nanometer range. When they enter the bloodstream, they can interact directly with immune cells. This project tests whether particle size changes the immune response.
+[Heading 2] 1.2 Experimental design
+[Normal] All four samples come from one donor. Cells are PBMC (peripheral blood mononuclear cells): mainly T cells, B cells, NK cells, monocytes, and some dendritic cells.
+[Heading 2] 1.3 Technology: single-cell RNA sequencing
+[Normal] Bulk RNA-seq averages gene expression across millions of mixed cells. scRNA-seq measures RNA in each cell separately. That allows you to ask:
+[List Bullet] Which cell types respond to nanoplastics?
+[List Bullet] Which genes change within each cell type?
+[List Bullet] Are effects specific to 40 nm, 200 nm, or only seen in the mixture?
+[Heading 2] 1.4 What the pipeline does (workflow)
+[List Bullet] Download data from Zenodo (.h5ad files)
+[List Bullet] QC — remove low-quality cells
+[List Bullet] Merge 4 samples + batch correction (Combat)
+[List Bullet] Clustering — UMAP and Leiden
+[List Bullet] Cell type annotation (markers, CoDi, optional Azimuth)
+[List Bullet] Composition analysis — cell type proportions per condition
+[List Bullet] Differential expression — genes changed vs control
+[List Bullet] Pathway enrichment — GO, KEGG, Reactome
+[List Bullet] Size-specific comparison — 40 nm vs 200 nm vs mix
+[Normal] Scientific question: How does nanoparticle size reshape the immune transcriptome at single-cell resolution?
+[Heading 2] 1.5 Main outputs
+[List Bullet] UMAP figures — visual map of all cells
+[List Bullet] Composition barplot — who is more/less abundant per treatment
+[List Bullet] differential_expression_all.csv — gene-level statistics
+[List Bullet] pathway_enrichment_all.csv — biological pathways
+[List Bullet] size_specific_effects_summary.csv — size-dependent gene sets
+[List Bullet] integrated_annotated.h5ad — full processed dataset for reuse
+[Heading 1] Part 2: Genes, Cells, and Their Relationship
+[Heading 2] 2.1 The count matrix (core data structure)
+[Normal] scRNA-seq data is stored as a count matrix — a large table of numbers:
+[Normal] In AnnData / Scanpy (used in this project), each ROW is one cell and each COLUMN is one gene. The value at (cell i, gene j) is how many UMIs (deduplicated reads) were detected for that gene in that cell.
+[List Bullet] One cell → one row → thousands of expression values (one per gene)
+[List Bullet] One gene → one column → expression measured in every cell
+[List Bullet] Relationship: each cell has a full gene expression profile; each gene is profiled across all cells
+[Heading 2] 2.2 What is a cell in the data?
+[Normal] Each captured cell has three layers of information:
+[List Bullet] Barcode — unique ID (e.g. AAACCCAAGACGCATG-1), stored as adata.obs_names
+[List Bullet] Metadata (adata.obs) — sample_id, condition (40nm/200nm/mix/control), cell_type, cluster, QC metrics
+[List Bullet] Expression profile — all gene counts for that cell (one row of adata.X)
+[Normal] Formula: Cell = identity (barcode) + metadata (labels) + expression profile (numbers).
+[Heading 2] 2.3 What is a gene in the data?
+[Normal] Each gene is a column. Gene symbols (CD3D, LYZ, ISG15, …) are in adata.var_names. Optional gene metadata is in adata.var (e.g. highly_variable, mitochondrial flag).
+[Normal] A marker gene is highly expressed in one cell type and low elsewhere — used to assign cell types. Example: LYZ is high in monocytes and low in T cells.
+[Heading 2] 2.4 How cells and genes relate (intuition)
+[Normal] Similar cells have similar rows (similar patterns across genes). Marker genes are columns that are high only in certain cell types. Differential expression compares columns (genes) between two groups of rows (cells) of the same type.
+[Heading 2] 2.5 AnnData structure (Python object)
+[Normal] adata.X — Main expression matrix (cells × genes), often normalized/log-transformed
+[Normal] adata.layers["counts"] — Raw counts before normalization — kept for DE and pseudobulk
+[Normal] adata.obs — One row per cell: condition, cell_type_marker, cluster, QC metrics
+[Normal] adata.var — One row per gene: e.g. highly_variable, mt
+[Normal] adata.obsm["X_umap"] — 2D coordinates per cell for plotting
+[Normal] Rule: adata.obs has the same number of rows as adata.X. adata.var has the same number of rows as adata.X has columns. Row i of X is the expression of all genes in cell i.
+[Heading 2] 2.6 From raw counts to analysis
+[Normal] Raw counts (layers['counts']): Integers from sequencing — original measurements.
+[Normal] Normalization (normalize_total + log1p): Fair comparison between cells with different sequencing depth.
+[Normal] HVG selection (~3000 genes): Keep genes that vary most; reduce noise for PCA/clustering.
+[Normal] PCA + Combat + UMAP: Compress and correct cells using gene patterns; visualize in 2D.
+[Normal] Annotation: Assign cell type labels using marker gene scores.
+[Normal] Differential expression: Within one cell type, compare each gene between exposure and control.
+[Heading 2] 2.7 Four conditions in the same matrix
+[Normal] All cells share the same genes (columns). They differ by metadata in adata.obs['condition']:
+[List Bullet] control — unexposed cells
+[List Bullet] PSNP_40nm — 40 nm exposure
+[List Bullet] PSNP_200nm — 200 nm exposure
+[List Bullet] PSNP_mix_40_200 — mixture exposure
+[Normal] Composition analysis counts rows (cells) per type per condition. DE compares gene columns between subsets of rows with the same cell type. Size-specific analysis compares sets of genes that changed under each exposure.
+[Heading 2] 2.8 Three ways to label cells
+[Normal] Marker-based (run_pipeline.py): Mean expression of known marker sets; highest score wins. Stored in cell_type_marker.
+[Normal] CoDi (CSV from dataset): External model predictions; used to validate marker-based labels.
+[Normal] Azimuth (optional R script): Maps cells to PBMC reference atlas; finer labels (e.g. CD4 vs CD8 T).
+[Heading 2] 2.9 Worked example
+[Normal] Question: Do 40 nm particles activate monocytes?
+[List Bullet] Select rows where cell_type_marker == Monocyte_CD14
+[List Bullet] Split into control vs PSNP_40nm using condition
+[List Bullet] For each gene (column), run statistical test (Wilcoxon)
+[List Bullet] Significant genes → pathway enrichment (inflammation, interferon, etc.)
+[Normal] Cells define which population you compare. Genes define what changed inside that population.
+[Heading 2] 2.10 Summary table
+[Heading 1] Part 3: Biological and Genomic Background
+[Heading 2] 3.1 What is the biological question?
+[Normal] Nanoplastics (tiny plastic particles, often < 1 µm) can enter the bloodstream and interact directly with immune cells. Particle size (e.g. 40 nm vs 200 nm) may change how strongly and in which cell types the immune system responds.
+[Normal] This project uses single-cell RNA sequencing (scRNA-seq) on human peripheral blood immune cells (PBMC) from one donor exposed to:
+[List Bullet] Sample 1: 40 nm carboxylated polystyrene nanoparticles (PSNPs)
+[List Bullet] Sample 2: 200 nm PSNPs
+[List Bullet] Sample 3: mixture of 40 nm + 200 nm
+[List Bullet] Sample 4: control (no exposure)
+[Heading 2] 3.2 What is scRNA-seq?
+[Normal] Bulk RNA-seq measures average gene expression across millions of cells mixed together. scRNA-seq captures RNA from thousands of individual cells separately.
+[Normal] Key concepts:
+[List Bullet] Gene expression: how much each gene is transcribed into mRNA in a cell.
+[List Bullet] UMI / counts matrix: table of cells (rows) × genes (columns) with read counts (AnnData convention).
+[List Bullet] Cell barcode: unique ID for each captured cell (e.g. AAACCCAAGACGCATG-1).
+[List Bullet] Feature: usually a gene; sometimes other features in the assay.
+[Heading 2] 3.3 PBMC and immune cell types
+[Normal] PBMC (peripheral blood mononuclear cells) include lymphocytes and monocytes. Major types in this project:
+[Heading 2] 3.4 Core bioinformatics concepts used in this pipeline
+[Normal] Quality control (QC): Remove damaged cells, empty droplets, and doublets before analysis. Metrics: number of genes detected, total UMI counts, % mitochondrial genes (MT-). High MT% often means dying/stressed cells.
+[Normal] Normalization: Cells have different sequencing depth. normalize_total scales each cell to the same total counts; log1p stabilizes variance for downstream statistics.
+[Normal] Highly variable genes (HVG): Genes that vary most across cells carry biological signal; ~3000 HVGs are used for dimensionality reduction instead of all ~20,000 genes.
+[Normal] PCA (Principal Component Analysis): Linear reduction: thousands of genes → ~30 principal components capturing main variation.
+[Normal] Batch correction / integration: Four samples were processed separately → technical 'batch' effects. Combat adjusts expression in PCA space so cells cluster by biology, not by sample file.
+[Normal] UMAP: Non-linear 2D embedding for visualization. Similar cells appear close together.
+[Normal] Leiden clustering: Groups cells into clusters (communities) on a nearest-neighbor graph.
+[Normal] Cell type annotation: Assigning labels (T cell, B cell, …) using marker genes or reference atlases (Azimuth, CoDi).
+[Normal] Differential expression (DE): Which genes are up/down in exposed vs control, within one cell type. Wilcoxon rank-sum test; adjusted p-value (FDR) controls false discoveries.
+[Normal] Pathway enrichment: Are DE genes over-represented in GO, KEGG, or Reactome pathways? Links gene lists to biology (e.g. interferon response, inflammation).
+[Normal] Size-specific effects: Comparing DE gene sets: unique to 40 nm, unique to 200 nm, shared, or only in mixture.
+[Heading 1] Part 4: Project Structure and Workflow
+[Heading 2] 4.1 Folder layout
+[List Bullet] config/config.yaml – all parameters (QC, DE, markers, paths)
+[List Bullet] data/raw/ – downloaded .h5ad and CoDi CSV (not on GitHub)
+[List Bullet] data/processed/ – integrated_annotated.h5ad after pipeline
+[List Bullet] results/figures/ – UMAP plots, composition barplot
+[List Bullet] results/tables/ – CSV outputs (DE, pathways, scores)
+[List Bullet] scripts/ – Python and R code
+[List Bullet] deliverables/ – PowerPoint, this Word doc, video script
+[Heading 2] 4.2 How to run (reproducibility)
+[List Bullet] pip install -r requirements.txt
+[List Bullet] python scripts/download_data.py
+[List Bullet] python scripts/run_pipeline.py
+[List Bullet] python scripts/make_slides.py
+[List Bullet] (optional) Rscript scripts/azimuth_annotation.R
+[Heading 2] 4.3 Data format: AnnData (.h5ad)
+[Normal] AnnData is the standard Python object for scRNA-seq. It contains:
+[List Bullet] adata.X – expression matrix (cells × genes)
+[List Bullet] adata.obs – metadata per cell (condition, cell type, QC metrics)
+[List Bullet] adata.var – metadata per gene
+[List Bullet] adata.layers – e.g. raw counts before normalization
+[List Bullet] adata.obsm – embeddings (PCA, UMAP coordinates)
+[Heading 1] Part 5: Code Explanation (function by function)
+[Heading 2] scripts/download_data.py
+[Normal] load_config() – Reads Zenodo record ID and paths from config.yaml.
+[Normal] download_file(url, path) – Downloads one file with streaming; skips if already present.
+[Normal] main() – Calls Zenodo API (record 15866724), saves metadata JSON, downloads all .h5ad, .csv, and .rds files into data/raw/.
+[Heading 2] scripts/run_pipeline.py – main analysis
+[Normal] load_config() – Loads YAML parameters.
+[Normal] setup_paths() – Creates data/ and results/ folders.
+[Normal] read_and_qc_sample() – Loads one .h5ad; adds sample_id and condition; computes MT%; filters cells: min_genes≥200, max_genes≤7000, min_counts≥500, MT%≤15.
+[Normal] merge_and_integrate() – Concatenates 4 samples; normalizes; selects 3000 HVGs; scales; PCA; Combat batch correction; builds neighbor graph; UMAP; Leiden clusters.
+[Normal] marker_based_annotation() – For each cell, scores mean expression of marker sets; assigns cell type with highest score → adata.obs['cell_type_marker'].
+[Normal] load_codi_annotations() – Maps CoDi labels from *_CoDi_KLD.csv to cells for validation.
+[Normal] composition_analysis() – Counts cell types per condition; saves CSV and barplot.
+[Normal] differential_expression_by_celltype() – For each cell type and each exposure (40nm, 200nm, mix): Wilcoxon test vs control → differential_expression_all.csv.
+[Normal] pathway_enrichment() – Enrichr via gseapy: GO, KEGG, Reactome on significant upregulated genes.
+[Normal] size_specific_effects() – Classifies DE genes: unique_40nm, unique_200nm, shared_40_200, shared_all_three, mix_only_emergent.
+[Normal] additional_insights() – Five extra analyses: cell cycle, IFN score, antigen presentation, pseudobulk matrix, CoDi vs marker agreement.
+[Normal] save_core_figures() – Exports UMAP colored by condition, cluster, and cell type.
+[Normal] main() – Runs all steps in order; writes integrated_annotated.h5ad.
+[Heading 2] scripts/azimuth_annotation.R
+[Normal] RunAzimuth() – Maps cells to Satija PBMC reference; outputs predicted cell types at three resolution levels + confidence score.
+[Heading 2] scripts/make_slides.py
+[Normal] main() – Builds PowerPoint from results figures and size-specific summary table.
+[Heading 1] Part 6: Configuration (config/config.yaml)
+[Normal] Key parameters and why they were chosen:
+[List Bullet] qc.min_genes = 200: Standard lower bound for real PBMC cells.
+[List Bullet] qc.max_genes = 7000: Filters likely doublets (two cells in one droplet).
+[List Bullet] qc.max_mt_percent = 15: Removes stressed/dying cells.
+[List Bullet] preprocessing.n_hvgs = 3000: Common choice for ~10k–50k cells.
+[List Bullet] preprocessing.integration_method = combat: Works on Windows; corrects batch between 4 samples.
+[List Bullet] de.pval_adj_threshold = 0.05: Standard FDR cutoff.
+[List Bullet] de.logfc_threshold = 0.25: Minimum biological effect size on log scale.
+[List Bullet] de.min_cells_per_group = 20: Minimum cells needed for stable DE test.
+[Heading 1] Part 7: Output Files and How to Interpret Them
+[Normal] umap_condition.png: Each point = one cell. Colors = treatment. Overlap of colors in same region = similar expression despite different exposure.
+[Normal] umap_celltypes_marker.png: Shows immune compartments (T, B, monocytes). Exposure effects should be interpreted within each type.
+[Normal] composition_barplot.png: Fraction of each cell type per condition. Shifts suggest nanoplastics change immune cell proportions (e.g. more monocytes).
+[Normal] differential_expression_all.csv: Columns: gene names, logFC, pvals, pvals_adj, cell_type, comparison. Positive logFC = higher in exposure than control.
+[Normal] pathway_enrichment_all.csv: Enriched GO/KEGG/Reactome terms for DE genes – biological interpretation.
+[Normal] size_specific_effects_summary.csv: Counts of DE genes in each size category per cell type.
+[Normal] ifn_scores_by_condition.csv: Mean interferon signature per condition – innate immune activation.
+[Heading 1] Part 8: How to Explain Results (for defense / report)
+[Heading 2] 8.1 Suggested narrative
+[List Bullet] Introduce nanoplastic health concern and size-dependent hypothesis.
+[List Bullet] Describe experimental design: 4 conditions, one donor PBMC, scRNA-seq.
+[List Bullet] Show QC: how many cells removed and why thresholds are justified.
+[List Bullet] Show integrated UMAP: batch correction worked; biology visible.
+[List Bullet] Show cell type annotation and composition changes.
+[List Bullet] Present DE and pathways for 1–2 most affected cell types.
+[List Bullet] Highlight size-specific gene sets and biological interpretation.
+[List Bullet] Mention limitations: single donor, in vitro exposure, need validation.
+[Heading 2] 8.2 Glossary (quick reference)
+[Normal] AnnData – Annotated data matrix for single-cell experiments in Python.
+[Normal] Combat – Batch correction method removing systematic sample effects.
+[Normal] CoDi – Reference-based cell type labels provided with the dataset.
+[Normal] DE – Differential expression – statistical comparison between groups.
+[Normal] FDR / padj – False discovery rate – corrected p-value for multiple testing.
+[Normal] HVG – Highly variable genes.
+[Normal] logFC – Log2 fold change between two groups.
+[Normal] PBMC – Peripheral blood mononuclear cells.
+[Normal] PSNP – Polystyrene nanoparticle.
+[Normal] Pseudobulk – Summing counts per cell type and condition (bulk-like profile).
+[Normal] Scanpy – Python library for scRNA-seq analysis.
+[Normal] UMI – Unique molecular identifier – deduplicated read count.
