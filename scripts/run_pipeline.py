@@ -25,6 +25,7 @@ import pandas as pd
 import scanpy as sc
 import seaborn as sns
 import yaml
+from scipy import sparse
 
 
 class PipelineLogger:
@@ -109,6 +110,20 @@ def setup_paths(cfg: Dict) -> Dict[str, Path]:
     (paths["results"] / "figures").mkdir(parents=True, exist_ok=True)
     (paths["results"] / "tables").mkdir(parents=True, exist_ok=True)
     return paths
+
+
+def _compact_adata_for_merge(adata: sc.AnnData) -> sc.AnnData:
+    """Drop unused AnnData slots and use CSR float32 to lower concat peak RAM."""
+    adata.raw = None
+    adata.layers.clear()
+    adata.obsm.clear()
+    adata.varm.clear()
+    adata.uns.clear()
+    if sparse.issparse(adata.X):
+        adata.X = sparse.csr_matrix(adata.X, dtype=np.float32)
+    else:
+        adata.X = np.asarray(adata.X, dtype=np.float32)
+    return adata
 
 
 def describe_raw_data(cfg: Dict, paths: Dict[str, Path], log: PipelineLogger) -> None:
@@ -198,7 +213,7 @@ def read_and_qc_sample(
         & (adata.obs["pct_counts_mt"] <= qc_cfg["max_mt_percent"]),
         :
     ].copy()
-    adata.X = adata.X.astype(np.float32)
+    adata = _compact_adata_for_merge(adata)
     n_after = adata.n_obs
     pct_kept = 100.0 * n_after / n_before if n_before else 0
     log.log(
@@ -412,7 +427,7 @@ def pathway_enrichment(
         gene_sets = ["GO_Biological_Process_2023", "KEGG_2021_Human", "Reactome_2022"]
         for gset in gene_sets:
             try:
-                enr = gp.enrichr(gene_list=list(sig), gene_sets=gset, organism="Human", outdir=None)
+                enr = gp.enrichr(gene_list=list(sig), gene_sets=gset, organism="human", outdir=None)
                 if enr.results is None or enr.results.empty:
                     continue
                 tmp = enr.results.copy()
@@ -662,9 +677,11 @@ def main():
                 f"  Merging {sample_id} into integrated object "
                 f"({adata.n_obs:,} + {sample.n_obs:,} cells, inner join on genes)..."
             )
-            adata = sc.concat([adata, sample], join="inner")
+            prev = adata
+            adata = sc.concat([prev, sample], join="inner", merge="same")
             adata.obs_names_make_unique()
-            del sample
+            adata = _compact_adata_for_merge(adata)
+            del prev, sample
             gc.collect()
 
         log.section("STEP 2 - MERGE, INTEGRATION, UMAP, CLUSTERING")
