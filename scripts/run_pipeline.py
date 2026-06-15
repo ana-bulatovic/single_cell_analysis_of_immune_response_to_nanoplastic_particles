@@ -682,10 +682,75 @@ def pathway_enrichment(
     return enr_all
 
 
+def _prepare_pathway_heatmap_pivot(
+    sub: pd.DataFrame,
+    *,
+    top_n: int,
+    fdr_col: str,
+    fdr_thr: float,
+    column_order: List[str],
+    column_labels: List[str],
+) -> tuple[Optional[pd.DataFrame], List[str]]:
+    """
+    Build one heatmap column per exposure (aggregate GO/KEGG/Reactome per Term).
+    Returns (pivot, y_labels) or (None, []) if no data.
+    """
+    if sub.empty:
+        return None, []
+
+    sub = sub[sub[fdr_col] < fdr_thr].copy()
+    if sub.empty:
+        return None, []
+
+    sub["neg_log_fdr"] = -np.log10(sub[fdr_col].clip(lower=1e-300))
+
+    # Best row per comparison x Term (lowest padj across gene-set databases).
+    collapsed = (
+        sub.sort_values(fdr_col)
+        .drop_duplicates(subset=["comparison", "Term"], keep="first")
+    )
+
+    term_rank = (
+        collapsed.groupby("Term")["neg_log_fdr"]
+        .max()
+        .sort_values(ascending=False)
+        .head(top_n)
+    )
+    top_terms = term_rank.index.tolist()
+    if not top_terms:
+        return None, []
+
+    label_rows = (
+        collapsed[collapsed["Term"].isin(top_terms)]
+        .sort_values(fdr_col)
+        .drop_duplicates(subset=["Term"], keep="first")
+    )
+    label_map = {
+        row["Term"]: _short_pathway_label(row["Term"], row["gene_set"])
+        for _, row in label_rows.iterrows()
+    }
+    y_labels = [label_map.get(term, term) for term in top_terms]
+
+    matrix = (
+        collapsed[collapsed["Term"].isin(top_terms)]
+        .pivot_table(
+            index="Term",
+            columns="comparison",
+            values="neg_log_fdr",
+            aggfunc="max",
+        )
+        .reindex(index=top_terms, columns=column_order)
+        .fillna(0.0)
+    )
+    matrix.columns = pd.Index(column_labels, name="Exposure vs control")
+    matrix.index = pd.Index(y_labels, name="Pathway")
+    return matrix, y_labels
+
+
 def plot_pathway_enrichment_figures(
     enr_all: pd.DataFrame, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
 ) -> List[Path]:
-    """Dot-style enrichment plots: pathways x exposure, one figure per cell type and direction."""
+    """Heatmap: pathways x exposure (one column per condition), per cell type and direction."""
     if enr_all.empty:
         log.log("  Skipped pathway figures (no enrichment table)")
         return []
@@ -699,67 +764,53 @@ def plot_pathway_enrichment_figures(
     fdr_thr = float(plot_cfg.get("fdr_threshold", 0.05))
     fdr_col = "Adjusted P-value"
 
+    comp_order = [c for c, _ in EXPOSURE_COMPARISONS]
+    comp_labels = [label for _, label in EXPOSURE_COMPARISONS]
+
     fig_dir = paths["results"] / "figures" / "pathway_enrichment"
     fig_dir.mkdir(parents=True, exist_ok=True)
     saved: List[Path] = []
 
     for (ctype, direction), sub in enr_all.groupby(["cell_type", "direction"], observed=False):
-        sub = sub[sub[fdr_col] < fdr_thr].copy()
-        if sub.empty:
+        pivot, _ = _prepare_pathway_heatmap_pivot(
+            sub,
+            top_n=top_n,
+            fdr_col=fdr_col,
+            fdr_thr=fdr_thr,
+            column_order=comp_order,
+            column_labels=comp_labels,
+        )
+        if pivot is None or pivot.empty:
             continue
 
-        sub["neg_log_fdr"] = -np.log10(sub[fdr_col].clip(lower=1e-300))
-        best = (
-            sub.sort_values(fdr_col)
-            .groupby(["comparison", "Term"], as_index=False)
-            .first()
-        )
-
-        term_rank = (
-            best.groupby("Term")["neg_log_fdr"]
-            .max()
-            .sort_values(ascending=False)
-            .head(top_n)
-        )
-        top_terms = term_rank.index.tolist()
-        if not top_terms:
-            continue
-
-        label_map = {
-            row["Term"]: _short_pathway_label(row["Term"], row["gene_set"])
-            for _, row in best[best["Term"].isin(top_terms)]
-            .drop_duplicates("Term")
-            .iterrows()
-        }
-        y_labels = [label_map.get(t, t) for t in top_terms]
-        n_terms = len(top_terms)
-
-        pivot = (
-            best[best["Term"].isin(top_terms)]
-            .pivot_table(index="Term", columns="comparison", values="neg_log_fdr", aggfunc="max")
-            .reindex(index=top_terms)
-        )
-        comp_order = [c for c, _ in EXPOSURE_COMPARISONS]
-        pivot = pivot.reindex(columns=comp_order).fillna(0.0)
-        pivot.index = y_labels
-        pivot.columns = [label for _, label in EXPOSURE_COMPARISONS]
-
+        n_terms = len(pivot)
+        n_cols = pivot.shape[1]
+        fig_w = max(5.0, 1.15 * n_cols + 2.5)
         fig_h = max(4.5, 0.32 * n_terms + 1.8)
-        fig, ax = plt.subplots(figsize=(7.0, fig_h))
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h))
         vmax = max(float(pivot.values.max()), 3.0)
-        sns.heatmap(
-            pivot,
-            ax=ax,
+        data = pivot.values.astype(float)
+
+        im = ax.imshow(
+            data,
+            aspect="auto",
             cmap="YlOrRd",
             vmin=0,
             vmax=vmax,
-            linewidths=0.4,
-            linecolor="white",
-            cbar_kws={"label": "-log10(adjusted p-value)", "shrink": 0.6},
+            origin="upper",
+            extent=[0, n_cols, n_terms, 0],
         )
+        ax.set_xticks(np.arange(n_cols) + 0.5)
+        ax.set_xticklabels(list(pivot.columns), rotation=0, ha="center")
+        ax.set_yticks(np.arange(n_terms) + 0.5)
+        ax.set_yticklabels(list(pivot.index), fontsize=8)
+        ax.set_xlim(0, n_cols)
+        ax.set_ylim(n_terms, 0)
+        fig.colorbar(im, ax=ax, shrink=0.6, label="-log10(adjusted p-value)")
+
         ax.set_xlabel("Exposure vs control")
         ax.set_ylabel("Enriched pathway")
-        ax.tick_params(axis="y", labelsize=8)
+        ax.tick_params(axis="x", labelsize=9)
 
         title_ct = str(ctype).replace("_", " ")
         ax.set_title(
@@ -773,7 +824,7 @@ def plot_pathway_enrichment_figures(
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
         saved.append(out_path)
-        log.log(f"  Saved pathway figure: {out_path}")
+        log.log(f"  Saved pathway figure: {out_path} ({n_cols} exposure columns)")
 
     log.log(f"  Pathway enrichment figures: {len(saved)} saved under {fig_dir}")
     return saved
