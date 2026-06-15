@@ -10,6 +10,20 @@ data:
 azimuth:
   record_id: "4546839"
   reference_file: "ref.Rds"
+  use_panels_for_pipeline: true
+  marker_panel_file: results/tables/azimuth_marker_panels_l1.yaml
+  marker_fallback_types:
+    - Platelet
+  marker_extraction:
+    level: "l1"           # l1, l2, or l3 from azimuth_annotations.csv
+    min_score: 0.5        # keep cells with prediction.score.max >= this
+    min_cells: 20         # minimum cells per type for DE
+    top_n: 10             # genes per type in panel export
+    padj: 0.05
+    min_logfc: 0.5
+    min_pct_in_group: 0.25
+    max_pct_out_group: 0.2
+    n_hvg: 4000
 
 samples:
   filtered_feature_bc_matrix:
@@ -38,6 +52,15 @@ de:
   min_cells_per_group: 20
   logfc_threshold: 0.25
   pval_adj_threshold: 0.05
+
+pathway_plots:
+  top_terms: 20
+  fdr_threshold: 0.05
+  min_input_genes: 10
+
+size_specific:
+  top_genes_per_class: 8
+  top_pathways_per_class: 5
 
 markers:
   T_cell: ["CD3D", "CD3E", "TRBC1"]

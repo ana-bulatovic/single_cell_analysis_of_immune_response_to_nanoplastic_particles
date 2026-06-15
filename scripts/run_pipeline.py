@@ -16,7 +16,7 @@ import gc
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, TextIO
+from typing import Dict, List, Optional, TextIO
 
 import gseapy as gp
 import matplotlib.pyplot as plt
@@ -69,6 +69,34 @@ class PipelineLogger:
         self._file.close()
 
 
+CONDITION_COLORS = {
+    "control": "#4C72B0",
+    "PSNP_40nm": "#DD8452",
+    "PSNP_200nm": "#55A868",
+    "PSNP_mix_40_200": "#C44E52",
+}
+
+CONDITION_LABELS = {
+    "control": "Control",
+    "PSNP_40nm": "PSNP 40 nm",
+    "PSNP_200nm": "PSNP 200 nm",
+    "PSNP_mix_40_200": "PSNP mix",
+}
+
+EXPOSURE_COMPARISONS = [
+    ("PSNP_40nm_vs_control", "40 nm"),
+    ("PSNP_200nm_vs_control", "200 nm"),
+    ("PSNP_mix_40_200_vs_control", "mix"),
+]
+
+CONDITION_ORDER = ["control", "PSNP_40nm", "PSNP_200nm", "PSNP_mix_40_200"]
+
+GENE_SET_PREFIX = {
+    "GO_Biological_Process_2023": "GO",
+    "KEGG_2021_Human": "KEGG",
+    "Reactome_2022": "Reactome",
+}
+
 FIGURE_DESCRIPTIONS = {
     "umap_condition.png": (
         "UMAP of all integrated cells colored by experimental condition "
@@ -84,6 +112,27 @@ FIGURE_DESCRIPTIONS = {
     "umap_celltypes_marker.png": (
         "UMAP colored by marker-based PBMC cell types (T, B, NK, monocytes, etc.). "
         "Assignment uses canonical marker gene sets from config.yaml."
+    ),
+    "umap_split_by_condition.png": (
+        "Same UMAP embedding split into four panels (one per condition). "
+        "Highlights each exposure against a gray background of all other cells — "
+        "useful to compare whether any condition occupies distinct regions."
+    ),
+    "umap_sample_integration.png": (
+        "UMAP colored by sample_id after Combat batch correction. "
+        "Good integration means all four samples intermix rather than forming separate islands."
+    ),
+    "umap_module_scores.png": (
+        "UMAP colored by cell-cycle (S, G2M) and interferon module scores. "
+        "Shows spatial distribution of proliferation and innate immune activation signals."
+    ),
+    "umap_codi_celltypes.png": (
+        "UMAP colored by external CoDi reference labels (when available). "
+        "Independent validation of marker-based annotation."
+    ),
+    "marker_dotplot.png": (
+        "Dot plot of canonical marker genes per assigned cell type. "
+        "Validates that marker-based labels match expected PBMC expression patterns."
     ),
     "composition_barplot.png": (
         "Stacked bar chart of cell-type fractions per condition. "
@@ -223,6 +272,41 @@ def read_and_qc_sample(
     return adata
 
 
+def score_gene_modules(adata: sc.AnnData, log: PipelineLogger) -> None:
+    """Score cell-cycle and immune modules on the full normalized gene space."""
+    log.log("  Scoring gene modules on full normalized matrix (before HVG subset)...")
+
+    s_genes = ["MCM5", "PCNA", "TYMS", "FEN1", "MCM2", "MCM4", "RRM1", "CDC6"]
+    g2m_genes = ["HMGB2", "CDK1", "NUSAP1", "TOP2A", "MKI67", "BIRC5", "UBE2C", "CCNB1"]
+    valid_s = [g for g in s_genes if g in adata.var_names]
+    valid_g2m = [g for g in g2m_genes if g in adata.var_names]
+    if valid_s and valid_g2m:
+        sc.tl.score_genes_cell_cycle(adata, s_genes=valid_s, g2m_genes=valid_g2m)
+        log.log(f"    Cell-cycle: {len(valid_s)} S genes, {len(valid_g2m)} G2M genes")
+    else:
+        log.log("  Warning: cell-cycle genes missing - scores set to NaN")
+        adata.obs["S_score"] = np.nan
+        adata.obs["G2M_score"] = np.nan
+
+    ifn_genes = ["ISG15", "IFIT1", "IFIT2", "IFIT3", "MX1", "OAS1", "OASL", "IFI6", "RSAD2"]
+    valid_ifn = [g for g in ifn_genes if g in adata.var_names]
+    if valid_ifn:
+        sc.tl.score_genes(adata, gene_list=valid_ifn, score_name="IFN_score")
+        log.log(f"    IFN signature: {len(valid_ifn)} genes")
+    else:
+        log.log("  Warning: IFN genes missing - IFN_score set to NaN")
+        adata.obs["IFN_score"] = np.nan
+
+    ag_genes = ["HLA-DRA", "HLA-DRB1", "CD74", "B2M", "TAP1", "TAP2", "HLA-DPA1", "HLA-DPB1"]
+    valid_ag = [g for g in ag_genes if g in adata.var_names]
+    if valid_ag:
+        sc.tl.score_genes(adata, gene_list=valid_ag, score_name="antigen_presentation_score")
+        log.log(f"    Antigen presentation: {len(valid_ag)} genes")
+    else:
+        log.log("  Warning: antigen presentation genes missing")
+        adata.obs["antigen_presentation_score"] = np.nan
+
+
 def merge_and_integrate(adata: sc.AnnData, cfg: Dict, log: PipelineLogger) -> sc.AnnData:
     adata.obs_names_make_unique()
     adata.layers["counts"] = adata.X.copy()
@@ -231,6 +315,8 @@ def merge_and_integrate(adata: sc.AnnData, cfg: Dict, log: PipelineLogger) -> sc
     log.log("  Normalizing to 10,000 counts per cell and log1p transform...")
     sc.pp.normalize_total(adata, target_sum=1e4)
     sc.pp.log1p(adata)
+
+    score_gene_modules(adata, log)
 
     log.log(f"  Selecting top {cfg['preprocessing']['n_hvgs']} highly variable genes (HVG, seurat flavor)...")
     sc.pp.highly_variable_genes(
@@ -275,6 +361,94 @@ def merge_and_integrate(adata: sc.AnnData, cfg: Dict, log: PipelineLogger) -> sc
     n_clusters = adata.obs["cluster"].nunique()
     log.log(f"  Found {n_clusters} Leiden clusters")
     return adata
+
+
+AZIMUTH_PANEL_TO_CELLTYPE = {
+    "B": "B_cell",
+    "CD4_T": "CD4_T",
+    "CD8_T": "CD8_T_cytotoxic",
+    "NK": "NK_cell",
+    "Mono": "Monocyte_CD14",
+    "DC": "DC",
+    "other": "other",
+    "other_T": "other_T",
+}
+
+AZIMUTH_L1_TO_MARKER = {
+    "CD4 T": "CD4_T",
+    "CD8 T": "CD8_T_cytotoxic",
+    "B": "B_cell",
+    "NK": "NK_cell",
+    "Mono": "Monocyte_CD14",
+    "DC": "DC",
+    "other T": "other_T",
+    "other": "other",
+}
+
+MODULE_SCORE_COLUMNS = ("S_score", "G2M_score", "IFN_score", "antigen_presentation_score")
+
+
+def _curated_markers_from_config(cfg: Dict) -> Dict[str, List[str]]:
+    return {
+        key: genes
+        for key, genes in cfg.get("markers", {}).items()
+        if isinstance(genes, list)
+    }
+
+
+def _azimuth_marker_panel_path(cfg: Dict, paths: Dict[str, Path]) -> Path:
+    az_cfg = cfg.get("azimuth", {})
+    explicit = az_cfg.get("marker_panel_file")
+    if explicit:
+        panel_path = Path(explicit)
+        if not panel_path.is_absolute():
+            panel_path = Path.cwd() / panel_path
+        return panel_path
+    level = az_cfg.get("marker_extraction", {}).get("level", "l1")
+    return paths["results"] / "tables" / f"azimuth_marker_panels_{level}.yaml"
+
+
+def resolve_marker_dict(
+    cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+) -> Dict[str, List[str]]:
+    """Load marker panels for pipeline annotation (Azimuth-derived or curated config)."""
+    az_cfg = cfg.get("azimuth", {})
+    curated = _curated_markers_from_config(cfg)
+
+    if not az_cfg.get("use_panels_for_pipeline", False):
+        log.log("  Marker source: curated panels from config.yaml")
+        return curated
+
+    panel_path = _azimuth_marker_panel_path(cfg, paths)
+    if not panel_path.exists():
+        log.log(
+            f"  Warning: Azimuth marker panel not found ({panel_path}). "
+            "Run scripts/extract_azimuth_markers.py first."
+        )
+        log.log("  Falling back to curated markers from config.yaml")
+        return curated
+
+    with open(panel_path, "r", encoding="utf-8") as f:
+        raw_panels = yaml.safe_load(f) or {}
+
+    marker_dict: Dict[str, List[str]] = {}
+    for az_key, genes in raw_panels.items():
+        if not isinstance(genes, list):
+            continue
+        celltype = AZIMUTH_PANEL_TO_CELLTYPE.get(az_key, az_key)
+        marker_dict[celltype] = [str(g) for g in genes if g]
+
+    for celltype in az_cfg.get("marker_fallback_types", ["Platelet"]):
+        if celltype in marker_dict:
+            continue
+        fallback_genes = curated.get(celltype)
+        if fallback_genes:
+            marker_dict[celltype] = list(fallback_genes)
+
+    log.log(f"  Marker source: Azimuth-derived panels ({panel_path.name})")
+    for ct, genes in sorted(marker_dict.items()):
+        log.log(f"    {ct}: {len(genes)} genes")
+    return marker_dict
 
 
 def marker_based_annotation(
@@ -406,47 +580,446 @@ def differential_expression_by_celltype(
     return de_all
 
 
+def _parse_overlap_fraction(overlap: str) -> float:
+    try:
+        hit, total = str(overlap).split("/")
+        return int(hit) / max(int(total), 1)
+    except (ValueError, AttributeError):
+        return 0.0
+
+
+def _short_pathway_label(term: str, gene_set: str, max_len: int = 52) -> str:
+    prefix = GENE_SET_PREFIX.get(gene_set, "")
+    label = str(term)
+    if prefix and not label.upper().startswith(prefix.upper()):
+        label = f"{prefix} | {label}"
+    if len(label) > max_len:
+        label = label[: max_len - 1] + "…"
+    return label
+
+
+def _significant_de_genes(
+    df: pd.DataFrame, cfg: Dict, direction: str
+) -> np.ndarray:
+    padj = cfg["de"]["pval_adj_threshold"]
+    lfc = cfg["de"]["logfc_threshold"]
+    if direction == "UP":
+        mask = (df["pvals_adj"] < padj) & (df["logfoldchanges"] > lfc)
+    else:
+        mask = (df["pvals_adj"] < padj) & (df["logfoldchanges"] < -lfc)
+    return df.loc[mask, "names"].dropna().astype(str).unique()
+
+
 def pathway_enrichment(
-    de_all: pd.DataFrame, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+    de_all: pd.DataFrame,
+    cfg: Dict,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+    directions: Optional[tuple] = None,
 ) -> pd.DataFrame:
     if de_all.empty:
         log.log("  Skipped pathway enrichment (no DE results)")
         return pd.DataFrame()
 
-    log.log("  Running Enrichr (GO, KEGG, Reactome) on significant DE genes per cell type x comparison...")
+    plot_cfg = cfg.get("pathway_plots", {})
+    min_genes = int(plot_cfg.get("min_input_genes", 10))
+    gene_sets = ["GO_Biological_Process_2023", "KEGG_2021_Human", "Reactome_2022"]
+    run_directions = directions or ("UP", "DOWN")
+
+    log.log(
+        "  Running Enrichr (GO, KEGG, Reactome) on significant "
+        f"{', '.join(run_directions)} DE genes per cell type x comparison..."
+    )
     enr_frames = []
-    for (ctype, comp), df in de_all.groupby(["cell_type", "comparison"]):
-        sig = df[
-            (df["pvals_adj"] < cfg["de"]["pval_adj_threshold"])
-            & (df["logfoldchanges"] > cfg["de"]["logfc_threshold"])
-        ]["names"].dropna().astype(str).unique()
+    for direction in run_directions:
+        for (ctype, comp), df in de_all.groupby(["cell_type", "comparison"]):
+            sig = _significant_de_genes(df, cfg, direction)
+            if len(sig) < min_genes:
+                continue
 
-        if len(sig) < 10:
-            continue
+            for gset in gene_sets:
+                try:
+                    enr = gp.enrichr(
+                        gene_list=list(sig), gene_sets=gset, organism="human", outdir=None
+                    )
+                    if enr.results is None or enr.results.empty:
+                        continue
+                    tmp = enr.results.copy()
+                    tmp["cell_type"] = ctype
+                    tmp["comparison"] = comp
+                    tmp["gene_set"] = gset
+                    tmp["direction"] = direction
+                    enr_frames.append(tmp)
+                    log.log(
+                        f"    {direction}: {ctype} / {comp} / {gset} "
+                        f"({len(sig)} input genes)"
+                    )
+                except Exception as exc:
+                    log.log(f"    Enrichr failed for {ctype}/{comp}/{gset}/{direction}: {exc}")
 
-        gene_sets = ["GO_Biological_Process_2023", "KEGG_2021_Human", "Reactome_2022"]
-        for gset in gene_sets:
-            try:
-                enr = gp.enrichr(gene_list=list(sig), gene_sets=gset, organism="human", outdir=None)
-                if enr.results is None or enr.results.empty:
-                    continue
-                tmp = enr.results.copy()
-                tmp["cell_type"] = ctype
-                tmp["comparison"] = comp
-                tmp["gene_set"] = gset
-                enr_frames.append(tmp)
-                log.log(f"    Enriched: {ctype} / {comp} / {gset} ({len(sig)} input genes)")
-            except Exception as exc:
-                log.log(f"    Enrichr failed for {ctype}/{comp}/{gset}: {exc}")
-
+    out_csv = paths["results"] / "tables" / "pathway_enrichment_all.csv"
     if not enr_frames:
+        if out_csv.exists():
+            log.log("  No new enrichment rows; keeping existing table")
+            return pd.read_csv(out_csv)
         log.log("  No pathway enrichment results returned")
         return pd.DataFrame()
-    enr_all = pd.concat(enr_frames, ignore_index=True)
-    out_csv = paths["results"] / "tables" / "pathway_enrichment_all.csv"
+
+    new_rows = pd.concat(enr_frames, ignore_index=True)
+    if out_csv.exists() and directions is not None:
+        existing = pd.read_csv(out_csv)
+        if "direction" not in existing.columns:
+            existing["direction"] = "UP"
+        combined = pd.concat([existing, new_rows], ignore_index=True)
+        key_cols = ["cell_type", "comparison", "gene_set", "direction", "Term"]
+        enr_all = combined.drop_duplicates(subset=key_cols, keep="last")
+        log.log(f"  Merged with existing table -> {len(enr_all):,} rows total")
+    else:
+        enr_all = new_rows
+
     enr_all.to_csv(out_csv, index=False)
     log.log(f"  Saved: {out_csv} ({len(enr_all):,} rows)")
     return enr_all
+
+
+def plot_pathway_enrichment_figures(
+    enr_all: pd.DataFrame, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+) -> List[Path]:
+    """Dot-style enrichment plots: pathways x exposure, one figure per cell type and direction."""
+    if enr_all.empty:
+        log.log("  Skipped pathway figures (no enrichment table)")
+        return []
+
+    if "direction" not in enr_all.columns:
+        enr_all = enr_all.copy()
+        enr_all["direction"] = "UP"
+
+    plot_cfg = cfg.get("pathway_plots", {})
+    top_n = int(plot_cfg.get("top_terms", 20))
+    fdr_thr = float(plot_cfg.get("fdr_threshold", 0.05))
+    fdr_col = "Adjusted P-value"
+
+    fig_dir = paths["results"] / "figures" / "pathway_enrichment"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    saved: List[Path] = []
+
+    for (ctype, direction), sub in enr_all.groupby(["cell_type", "direction"], observed=False):
+        sub = sub[sub[fdr_col] < fdr_thr].copy()
+        if sub.empty:
+            continue
+
+        sub["neg_log_fdr"] = -np.log10(sub[fdr_col].clip(lower=1e-300))
+        best = (
+            sub.sort_values(fdr_col)
+            .groupby(["comparison", "Term"], as_index=False)
+            .first()
+        )
+
+        term_rank = (
+            best.groupby("Term")["neg_log_fdr"]
+            .max()
+            .sort_values(ascending=False)
+            .head(top_n)
+        )
+        top_terms = term_rank.index.tolist()
+        if not top_terms:
+            continue
+
+        label_map = {
+            row["Term"]: _short_pathway_label(row["Term"], row["gene_set"])
+            for _, row in best[best["Term"].isin(top_terms)]
+            .drop_duplicates("Term")
+            .iterrows()
+        }
+        y_labels = [label_map.get(t, t) for t in top_terms]
+        n_terms = len(top_terms)
+
+        pivot = (
+            best[best["Term"].isin(top_terms)]
+            .pivot_table(index="Term", columns="comparison", values="neg_log_fdr", aggfunc="max")
+            .reindex(index=top_terms)
+        )
+        comp_order = [c for c, _ in EXPOSURE_COMPARISONS]
+        pivot = pivot.reindex(columns=comp_order).fillna(0.0)
+        pivot.index = y_labels
+        pivot.columns = [label for _, label in EXPOSURE_COMPARISONS]
+
+        fig_h = max(4.5, 0.32 * n_terms + 1.8)
+        fig, ax = plt.subplots(figsize=(7.0, fig_h))
+        vmax = max(float(pivot.values.max()), 3.0)
+        sns.heatmap(
+            pivot,
+            ax=ax,
+            cmap="YlOrRd",
+            vmin=0,
+            vmax=vmax,
+            linewidths=0.4,
+            linecolor="white",
+            cbar_kws={"label": "-log10(adjusted p-value)", "shrink": 0.6},
+        )
+        ax.set_xlabel("Exposure vs control")
+        ax.set_ylabel("Enriched pathway")
+        ax.tick_params(axis="y", labelsize=8)
+
+        title_ct = str(ctype).replace("_", " ")
+        ax.set_title(
+            f"{title_ct} — pathway enrichment ({direction}-regulated genes)",
+            fontsize=11,
+            pad=10,
+        )
+        plt.tight_layout()
+
+        out_path = fig_dir / f"pathways_{ctype}_{direction}.png"
+        fig.savefig(out_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(out_path)
+        log.log(f"  Saved pathway figure: {out_path}")
+
+    log.log(f"  Pathway enrichment figures: {len(saved)} saved under {fig_dir}")
+    return saved
+
+
+SIZE_EFFECT_CLASSES = (
+    "unique_40nm",
+    "unique_200nm",
+    "shared_40_200",
+    "shared_all_three",
+    "mix_only_emergent",
+)
+
+# Primary DE comparison used for logFC / direction when exporting genes per class.
+SIZE_EFFECT_PRIMARY_COMPARISON = {
+    "unique_40nm": "PSNP_40nm_vs_control",
+    "unique_200nm": "PSNP_200nm_vs_control",
+    "shared_40_200": "PSNP_200nm_vs_control",
+    "shared_all_three": "PSNP_mix_40_200_vs_control",
+    "mix_only_emergent": "PSNP_mix_40_200_vs_control",
+}
+
+SIZE_EFFECT_INTERPRETATION = {
+    "unique_40nm": (
+        "Response specific to 40 nm PSNP; may reflect higher surface-area-to-volume "
+        "ratio and distinct uptake/signaling vs larger particles."
+    ),
+    "unique_200nm": (
+        "Response specific to 200 nm PSNP; often aligned with stronger myeloid "
+        "engagement (phagocytosis, PRR signaling)."
+    ),
+    "shared_40_200": (
+        "Significant for both 40 nm and 200 nm solo exposures but not in the mix; "
+        "mix may mask or redirect this program."
+    ),
+    "shared_all_three": (
+        "Core PSNP response module: significant across 40 nm, 200 nm, and mix — "
+        "particle-size-independent transcriptional program."
+    ),
+    "mix_only_emergent": (
+        "Emergent mixture effect: significant only when both particle sizes are "
+        "present; not a simple sum of solo exposures."
+    ),
+}
+
+
+def _significant_de_mask(de_all: pd.DataFrame, cfg: Dict) -> pd.Series:
+    return (de_all["pvals_adj"] < cfg["de"]["pval_adj_threshold"]) & (
+        de_all["logfoldchanges"].abs() > cfg["de"]["logfc_threshold"]
+    )
+
+
+def _size_effect_sets_for_celltype(s: pd.DataFrame) -> Dict[str, set]:
+    s40 = set(s[s["comparison"] == "PSNP_40nm_vs_control"]["names"])
+    s200 = set(s[s["comparison"] == "PSNP_200nm_vs_control"]["names"])
+    smix = set(s[s["comparison"] == "PSNP_mix_40_200_vs_control"]["names"])
+    return {
+        "unique_40nm": s40 - s200 - smix,
+        "unique_200nm": s200 - s40 - smix,
+        "shared_40_200": (s40 & s200) - smix,
+        "shared_all_three": s40 & s200 & smix,
+        "mix_only_emergent": smix - s40 - s200,
+    }
+
+
+def _run_enrichr_batches(
+    gene_list: List[str],
+    gene_sets: List[str],
+    log: PipelineLogger,
+    label: str,
+) -> List[pd.DataFrame]:
+    frames: List[pd.DataFrame] = []
+    for gset in gene_sets:
+        try:
+            enr = gp.enrichr(
+                gene_list=gene_list, gene_sets=gset, organism="human", outdir=None
+            )
+            if enr.results is None or enr.results.empty:
+                continue
+            tmp = enr.results.copy()
+            tmp["gene_set"] = gset
+            frames.append(tmp)
+        except Exception as exc:
+            log.log(f"    Enrichr failed for {label} / {gset}: {exc}")
+    return frames
+
+
+def _export_size_specific_genes(
+    de_all: pd.DataFrame,
+    sig: pd.DataFrame,
+    cfg: Dict,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> pd.DataFrame:
+    padj_thr = cfg["de"]["pval_adj_threshold"]
+    lfc_thr = cfg["de"]["logfc_threshold"]
+    gene_rows: List[Dict] = []
+
+    for ctype in sorted(sig["cell_type"].unique()):
+        s = sig[sig["cell_type"] == ctype]
+        effect_sets = _size_effect_sets_for_celltype(s)
+        de_ct = de_all[de_all["cell_type"] == ctype]
+
+        for effect_class, genes in effect_sets.items():
+            if not genes:
+                continue
+            primary_comp = SIZE_EFFECT_PRIMARY_COMPARISON[effect_class]
+            de_primary = de_ct[de_ct["comparison"] == primary_comp].set_index("names")
+
+            for gene in sorted(genes):
+                row: Dict = {
+                    "cell_type": ctype,
+                    "effect_class": effect_class,
+                    "gene": gene,
+                    "primary_comparison": primary_comp,
+                }
+                if gene in de_primary.index:
+                    lfc = float(de_primary.at[gene, "logfoldchanges"])
+                    padj = float(de_primary.at[gene, "pvals_adj"])
+                    row["logfoldchanges"] = lfc
+                    row["pvals_adj"] = padj
+                    if padj < padj_thr and lfc > lfc_thr:
+                        row["direction"] = "UP"
+                    elif padj < padj_thr and lfc < -lfc_thr:
+                        row["direction"] = "DOWN"
+                    else:
+                        row["direction"] = "NS_in_primary"
+                else:
+                    row["logfoldchanges"] = np.nan
+                    row["pvals_adj"] = np.nan
+                    row["direction"] = "NA"
+                gene_rows.append(row)
+
+    genes_df = pd.DataFrame(gene_rows)
+    out_csv = paths["results"] / "tables" / "size_specific_genes.csv"
+    genes_df.to_csv(out_csv, index=False)
+    log.log(f"  Saved: {out_csv} ({len(genes_df):,} gene rows)")
+    return genes_df
+
+
+def size_specific_pathway_enrichment(
+    genes_df: pd.DataFrame, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+) -> pd.DataFrame:
+    if genes_df.empty:
+        log.log("  Skipped size-specific pathway enrichment (no gene lists)")
+        return pd.DataFrame()
+
+    plot_cfg = cfg.get("pathway_plots", {})
+    min_genes = int(plot_cfg.get("min_input_genes", 10))
+    gene_sets = ["GO_Biological_Process_2023", "KEGG_2021_Human", "Reactome_2022"]
+
+    log.log(
+        "  Running Enrichr on UP-regulated genes per size-effect class "
+        f"(min {min_genes} genes)..."
+    )
+    enr_frames: List[pd.DataFrame] = []
+    for (ctype, effect_class), sub in genes_df.groupby(
+        ["cell_type", "effect_class"], observed=False
+    ):
+        up_genes = sub.loc[sub["direction"] == "UP", "gene"].dropna().astype(str).unique()
+        if len(up_genes) < min_genes:
+            continue
+
+        label = f"{ctype}/{effect_class}"
+        for tmp in _run_enrichr_batches(list(up_genes), gene_sets, log, label):
+            tmp["cell_type"] = ctype
+            tmp["effect_class"] = effect_class
+            tmp["direction"] = "UP"
+            tmp["n_input_genes"] = len(up_genes)
+            enr_frames.append(tmp)
+            log.log(f"    UP: {label} / {tmp['gene_set'].iloc[0]} ({len(up_genes)} genes)")
+
+    out_csv = paths["results"] / "tables" / "size_specific_pathway_enrichment.csv"
+    if not enr_frames:
+        log.log("  No size-specific pathway enrichment results returned")
+        return pd.DataFrame()
+
+    enr_all = pd.concat(enr_frames, ignore_index=True)
+    enr_all.to_csv(out_csv, index=False)
+    log.log(f"  Saved: {out_csv} ({len(enr_all):,} rows)")
+    return enr_all
+
+
+def _build_size_specific_interpretation(
+    summary: pd.DataFrame,
+    genes_df: pd.DataFrame,
+    enr_df: pd.DataFrame,
+    cfg: Dict,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> pd.DataFrame:
+    top_n_genes = int(cfg.get("size_specific", {}).get("top_genes_per_class", 8))
+    top_n_paths = int(cfg.get("size_specific", {}).get("top_pathways_per_class", 5))
+    fdr_thr = float(cfg.get("pathway_plots", {}).get("fdr_threshold", 0.05))
+    fdr_col = "Adjusted P-value"
+
+    rows: List[Dict] = []
+    for _, srow in summary.iterrows():
+        ctype = srow["cell_type"]
+        effect_class = srow["effect_class"]
+        n_genes = int(srow["n_genes"])
+
+        sub_genes = genes_df[
+            (genes_df["cell_type"] == ctype) & (genes_df["effect_class"] == effect_class)
+        ].copy()
+        sub_genes = sub_genes.dropna(subset=["logfoldchanges"])
+        sub_genes["abs_lfc"] = sub_genes["logfoldchanges"].abs()
+        top_genes = (
+            sub_genes.sort_values("abs_lfc", ascending=False)["gene"]
+            .head(top_n_genes)
+            .tolist()
+        )
+
+        top_pathways: List[str] = []
+        if not enr_df.empty:
+            sub_enr = enr_df[
+                (enr_df["cell_type"] == ctype)
+                & (enr_df["effect_class"] == effect_class)
+                & (enr_df[fdr_col] < fdr_thr)
+            ].sort_values(fdr_col)
+            for _, erow in sub_enr.head(top_n_paths).iterrows():
+                top_pathways.append(
+                    f"{_short_pathway_label(erow['Term'], erow['gene_set'])} "
+                    f"(padj={erow[fdr_col]:.2e})"
+                )
+
+        note = SIZE_EFFECT_INTERPRETATION.get(effect_class, "")
+        if n_genes == 0:
+            note = "No significant genes in this class for this cell type."
+
+        rows.append(
+            {
+                "cell_type": ctype,
+                "effect_class": effect_class,
+                "n_genes": n_genes,
+                "top_genes": "; ".join(top_genes) if top_genes else "",
+                "top_pathways": " | ".join(top_pathways) if top_pathways else "",
+                "interpretation": note,
+            }
+        )
+
+    interp_df = pd.DataFrame(rows)
+    out_csv = paths["results"] / "tables" / "size_specific_interpretation.csv"
+    interp_df.to_csv(out_csv, index=False)
+    log.log(f"  Saved: {out_csv} ({len(interp_df)} rows)")
+    return interp_df
 
 
 def size_specific_effects(
@@ -457,81 +1030,104 @@ def size_specific_effects(
         return pd.DataFrame()
 
     log.log("  Classifying DE genes by particle size (unique 40nm / 200nm / shared / mix-only)...")
-    sig = de_all[
-        (de_all["pvals_adj"] < cfg["de"]["pval_adj_threshold"])
-        & (de_all["logfoldchanges"].abs() > cfg["de"]["logfc_threshold"])
-    ][["cell_type", "comparison", "names"]].drop_duplicates()
+    sig = de_all.loc[_significant_de_mask(de_all, cfg), ["cell_type", "comparison", "names"]].drop_duplicates()
 
     results = []
     for ctype in sig["cell_type"].unique():
         s = sig[sig["cell_type"] == ctype]
-        s40 = set(s[s["comparison"] == "PSNP_40nm_vs_control"]["names"])
-        s200 = set(s[s["comparison"] == "PSNP_200nm_vs_control"]["names"])
-        smix = set(s[s["comparison"] == "PSNP_mix_40_200_vs_control"]["names"])
-
-        rows = {
-            "unique_40nm": len(s40 - s200 - smix),
-            "unique_200nm": len(s200 - s40 - smix),
-            "shared_40_200": len((s40 & s200) - smix),
-            "shared_all_three": len(s40 & s200 & smix),
-            "mix_only_emergent": len(smix - s40 - s200),
-        }
+        rows = _size_effect_sets_for_celltype(s)
         for k, v in rows.items():
-            results.append({"cell_type": ctype, "effect_class": k, "n_genes": v})
-        log.log(f"    {ctype}: " + ", ".join(f"{k}={v}" for k, v in rows.items()))
+            results.append({"cell_type": ctype, "effect_class": k, "n_genes": len(v)})
+        log.log(f"    {ctype}: " + ", ".join(f"{k}={len(v)}" for k, v in rows.items()))
 
-    out = pd.DataFrame(results)
+    summary = pd.DataFrame(results)
     out_csv = paths["results"] / "tables" / "size_specific_effects_summary.csv"
-    out.to_csv(out_csv, index=False)
+    summary.to_csv(out_csv, index=False)
     log.log(f"  Saved: {out_csv}")
-    return out
+
+    genes_df = _export_size_specific_genes(de_all, sig, cfg, paths, log)
+    enr_df = size_specific_pathway_enrichment(genes_df, cfg, paths, log)
+    _build_size_specific_interpretation(summary, genes_df, enr_df, cfg, paths, log)
+    return summary
 
 
-def additional_insights(
+def attach_azimuth_labels(
     adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger
-) -> None:
-    log.log("  [1/5] Cell-cycle scores (S and G2/M phases)...")
-    s_genes = ["MCM5", "PCNA", "TYMS", "FEN1", "MCM2", "MCM4"]
-    g2m_genes = ["HMGB2", "CDK1", "NUSAP1", "TOP2A", "MKI67", "BIRC5"]
-    valid_s = [g for g in s_genes if g in adata.var_names]
-    valid_g2m = [g for g in g2m_genes if g in adata.var_names]
-    if valid_s and valid_g2m:
-        sc.tl.score_genes_cell_cycle(adata, s_genes=valid_s, g2m_genes=valid_g2m)
-    else:
-        log.log("  Warning: cell-cycle genes missing - scores set to NaN")
-        adata.obs["S_score"] = np.nan
-        adata.obs["G2M_score"] = np.nan
-    p = paths["results"] / "tables" / "cell_cycle_scores_by_condition.csv"
-    adata.obs.groupby("condition")[["S_score", "G2M_score"]].mean().to_csv(p)
-    log.log(f"  Saved: {p}")
+) -> bool:
+    """Merge Azimuth L1 labels onto adata.obs for cross-validation tables."""
+    az_path = paths["results"] / "tables" / "azimuth_annotations.csv"
+    if not az_path.exists():
+        log.log("  Azimuth CSV not found — skipping Azimuth agreement metrics.")
+        return False
 
-    log.log("  [2/5] Interferon (IFN) response signature...")
-    ifn_genes = ["ISG15", "IFIT1", "IFIT2", "IFIT3", "MX1", "OAS1", "OASL"]
-    valid_ifn = [g for g in ifn_genes if g in adata.var_names]
-    if valid_ifn:
-        sc.tl.score_genes(adata, gene_list=valid_ifn, score_name="IFN_score")
-    else:
-        log.log("  Warning: IFN genes missing - IFN_score set to NaN")
-        adata.obs["IFN_score"] = np.nan
-    p = paths["results"] / "tables" / "ifn_scores_by_condition.csv"
-    adata.obs.groupby("condition")["IFN_score"].mean().to_csv(p)
-    log.log(f"  Saved: {p}")
+    az = pd.read_csv(az_path)
+    az = az.assign(
+        cell_id_clean=az["cell_id"].astype(str).str.replace(r"-\d+$", "", regex=True)
+    )
+    if "cell_id_clean" not in adata.obs.columns:
+        adata.obs["cell_id_clean"] = adata.obs_names.str.replace(r"-\d+$", "", regex=True)
 
-    log.log("  [3/5] Antigen presentation score (HLA pathway)...")
-    ag_genes = ["HLA-DRA", "HLA-DRB1", "CD74", "B2M", "TAP1", "TAP2"]
-    valid_ag = [g for g in ag_genes if g in adata.var_names]
-    if valid_ag:
-        sc.tl.score_genes(adata, gene_list=valid_ag, score_name="antigen_presentation_score")
-    else:
-        log.log("  Warning: antigen presentation genes missing")
-        adata.obs["antigen_presentation_score"] = np.nan
-    p = paths["results"] / "tables" / "antigen_presentation_scores.csv"
-    adata.obs.groupby(["condition", "cell_type_marker"], observed=False)[
-        "antigen_presentation_score"
-    ].mean().to_csv(p)
-    log.log(f"  Saved: {p}")
+    az_map = az.set_index("cell_id_clean")
+    adata.obs["azimuth_l1"] = (
+        adata.obs["cell_id_clean"].map(az_map["predicted.celltype.l1"]).fillna("NA")
+    )
+    adata.obs["azimuth_score"] = (
+        adata.obs["cell_id_clean"].map(az_map["prediction.score.max"]).astype(float)
+    )
+    adata.obs["azimuth_l1_norm"] = (
+        adata.obs["azimuth_l1"].map(AZIMUTH_L1_TO_MARKER).fillna("NA")
+    )
+    mapped = (adata.obs["azimuth_l1"] != "NA").mean() * 100
+    log.log(f"  Azimuth labels mapped to {mapped:.1f}% of cells")
+    return True
 
-    log.log("  [4/5] Pseudobulk counts (sum UMIs per condition x cell type)...")
+
+def _export_module_score_tables(
+    adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger
+) -> Dict[str, pd.DataFrame]:
+    """Aggregate module scores by condition and by condition x cell type."""
+    tables: Dict[str, pd.DataFrame] = {}
+    score_cols = [c for c in MODULE_SCORE_COLUMNS if c in adata.obs.columns]
+    if not score_cols:
+        log.log("  Warning: no module score columns in adata.obs")
+        return tables
+
+    log.log("  [1/6] Module scores by condition (global means)...")
+    by_cond = adata.obs.groupby("condition", observed=False)[score_cols].mean().reset_index()
+    by_cond.to_csv(paths["results"] / "tables" / "module_scores_by_condition.csv", index=False)
+    tables["by_condition"] = by_cond
+    log.log(f"  Saved: module_scores_by_condition.csv")
+
+    cc = by_cond[["condition", "S_score", "G2M_score"]].copy()
+    cc.to_csv(paths["results"] / "tables" / "cell_cycle_scores_by_condition.csv", index=False)
+    tables["cell_cycle"] = cc
+
+    ifn = by_cond[["condition", "IFN_score"]].copy()
+    ifn.to_csv(paths["results"] / "tables" / "ifn_scores_by_condition.csv", index=False)
+    tables["ifn"] = ifn
+
+    log.log("  [2/6] Module scores by condition x cell type...")
+    by_ct = (
+        adata.obs.groupby(["condition", "cell_type_marker"], observed=False)[score_cols]
+        .mean()
+        .reset_index()
+    )
+    by_ct.to_csv(paths["results"] / "tables" / "module_scores_by_condition_celltype.csv", index=False)
+    tables["by_condition_celltype"] = by_ct
+
+    ag = by_ct[["condition", "cell_type_marker", "antigen_presentation_score"]].copy()
+    ag.to_csv(paths["results"] / "tables" / "antigen_presentation_scores.csv", index=False)
+    tables["antigen"] = ag
+    log.log("  Saved: module_scores_by_condition_celltype.csv, antigen_presentation_scores.csv")
+    return tables
+
+
+def _export_pseudobulk(adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger) -> pd.DataFrame:
+    log.log("  [3/6] Pseudobulk counts (sum UMIs per condition x cell type)...")
+    if "counts" not in adata.layers:
+        log.log("  Warning: counts layer missing — cannot build pseudobulk matrix.")
+        return pd.DataFrame()
+
     counts_layer = adata.layers["counts"]
     matrix = counts_layer.toarray() if hasattr(counts_layer, "toarray") else counts_layer
     pseudobulk = (
@@ -546,42 +1142,621 @@ def additional_insights(
     p = paths["results"] / "tables" / "pseudobulk_counts_condition_celltype.csv"
     pseudobulk.to_csv(p)
     log.log(f"  Saved: {p} ({pseudobulk.shape[0]} groups)")
+    return pseudobulk
 
-    log.log("  [5/5] CoDi vs marker annotation agreement...")
-    agreement = (
-        adata.obs["cell_type_codi_norm"].astype(str) == adata.obs["cell_type_marker"].astype(str)
-    ).mean()
-    p = paths["results"] / "tables" / "annotation_agreement_metrics.csv"
-    pd.DataFrame({"metric": ["codi_marker_agreement"], "value": [agreement]}).to_csv(p, index=False)
-    log.log(f"  Agreement fraction: {agreement:.3f} - saved {p}")
+
+def _export_annotation_agreement(
+    adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger, has_azimuth: bool
+) -> pd.DataFrame:
+    log.log("  [4/6] Annotation cross-validation (CoDi / marker / Azimuth)...")
+    marker = adata.obs["cell_type_marker"].astype(str)
+    codi = adata.obs["cell_type_codi_norm"].astype(str)
+    valid_codi = codi != "NA"
+
+    rows = [
+        {
+            "metric": "codi_marker_agreement",
+            "value": float((codi[valid_codi] == marker[valid_codi]).mean()) if valid_codi.any() else np.nan,
+            "description": "Fraction of CoDi-mapped cells with same label as marker annotation",
+        },
+        {
+            "metric": "codi_mapped_fraction",
+            "value": float(valid_codi.mean()),
+            "description": "Fraction of cells with a CoDi reference label",
+        },
+    ]
+
+    if has_azimuth and "azimuth_l1_norm" in adata.obs.columns:
+        az_norm = adata.obs["azimuth_l1_norm"].astype(str)
+        az_valid = az_norm != "NA"
+        hi_conf = adata.obs["azimuth_score"] >= 0.5
+        rows.extend(
+            [
+                {
+                    "metric": "azimuth_marker_agreement",
+                    "value": float((az_norm[az_valid] == marker[az_valid]).mean()),
+                    "description": "Fraction of Azimuth-mapped cells matching marker annotation (L1 mapped)",
+                },
+                {
+                    "metric": "azimuth_marker_agreement_score_ge_0.5",
+                    "value": float((az_norm[hi_conf] == marker[hi_conf]).mean()),
+                    "description": "Same as above, only cells with Azimuth score >= 0.5",
+                },
+                {
+                    "metric": "codi_azimuth_agreement",
+                    "value": float((codi[valid_codi & az_valid] == az_norm[valid_codi & az_valid]).mean())
+                    if (valid_codi & az_valid).any()
+                    else np.nan,
+                    "description": "Fraction where CoDi normalized label matches Azimuth L1 mapped label",
+                },
+                {
+                    "metric": "azimuth_mean_score",
+                    "value": float(adata.obs["azimuth_score"].mean()),
+                    "description": "Mean Azimuth prediction score across all cells",
+                },
+            ]
+        )
+
+        ctab = pd.crosstab(marker, adata.obs["azimuth_l1"], margins=True)
+        ctab.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_azimuth.csv")
+        log.log("  Saved: annotation_crosstab_marker_azimuth.csv")
+
+    ctab_codi = pd.crosstab(marker, codi, margins=True)
+    ctab_codi.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_codi.csv")
+    log.log("  Saved: annotation_crosstab_marker_codi.csv")
+
+    metrics = pd.DataFrame(rows)
+    metrics.to_csv(paths["results"] / "tables" / "annotation_agreement_metrics.csv", index=False)
+    log.log(f"  Saved: annotation_agreement_metrics.csv ({len(metrics)} metrics)")
+    for _, r in metrics.iterrows():
+        log.log(f"    {r['metric']}: {r['value']:.3f}")
+    return metrics
+
+
+def _interpret_module_delta(
+    df: pd.DataFrame,
+    score_col: str,
+    *,
+    group_col: str = "condition",
+    control: str = "control",
+    threshold: float = 0.01,
+) -> List[str]:
+    """Build short interpretation lines comparing each condition to control."""
+    if score_col not in df.columns or control not in set(df[group_col]):
+        return []
+
+    ctrl_val = float(df.loc[df[group_col] == control, score_col].iloc[0])
+    lines = []
+    for cond in CONDITION_ORDER:
+        if cond == control or cond not in set(df[group_col]):
+            continue
+        val = float(df.loc[df[group_col] == cond, score_col].iloc[0])
+        delta = val - ctrl_val
+        label = CONDITION_LABELS.get(cond, cond)
+        if abs(delta) < threshold:
+            verdict = "bez značajne promene"
+        elif delta > 0:
+            verdict = "povišen u odnosu na control"
+        else:
+            verdict = "snižen u odnosu na control"
+        lines.append(f"  - {score_col} | {label}: {val:.4f} (Δ vs control {delta:+.4f}) — {verdict}")
+    return lines
+
+
+def write_additional_analyses_interpretation(
+    module_tables: Dict[str, pd.DataFrame],
+    agreement: pd.DataFrame,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> Path:
+    log.log("  [5/6] Writing interpretation report (SR)...")
+    out = paths["results"] / "tables" / "additional_analyses_interpretation_SR.md"
+    lines = [
+        "# Dodatne analize — interpretacija rezultata",
+        "",
+        "Ovaj fajl objašnjava šta znače tabele i figure iz `run_additional_analyses.py` / STEP 9 pipeline-a.",
+        "",
+        "## 1. Module score analize",
+        "",
+        "**Šta se radi:** Na punom normalizovanom transkriptomu (pre HVG filtriranja) računaju se",
+        "skorovi genetskih programa pomoću `scanpy.tl.score_genes` / `score_genes_cell_cycle`.",
+        "Svaka ćelija dobija jedan broj po programu; ovde se računaju proseci po uslovu i tipu ćelije.",
+        "",
+        "**Geni u panelima:**",
+        "- S / G2M faza: klasični cell-cycle geni (MCM5, PCNA, MKI67, ...)",
+        "- IFN: ISG15, IFIT1-3, MX1, OAS1, OASL, IFI6, RSAD2",
+        "- Antigen presentation: HLA-DRA/DRB1, CD74, B2M, TAP1/2, HLA-DPA1/DPB1",
+        "",
+    ]
+
+    by_cond = module_tables.get("by_condition")
+    if by_cond is not None and not by_cond.empty:
+        lines.append("### Globalni nalazi po uslovu")
+        lines.append("")
+        for col in ("S_score", "G2M_score", "IFN_score", "antigen_presentation_score"):
+            if col in by_cond.columns:
+                lines.append(f"**{col}**")
+                lines.extend(_interpret_module_delta(by_cond, col))
+                lines.append("")
+
+    ag = module_tables.get("antigen")
+    if ag is not None and not ag.empty:
+        lines.extend(
+            [
+                "### Antigen presentation po tipu ćelije",
+                "",
+                "Najviši skorovi su očekivani kod B ćelija i antigen-prezentujućih tipova (DC, monociti).",
+                "Poređenje uslova unutar istog tipa pokazuje da li izloženost menja MHC/HLA program.",
+                "",
+            ]
+        )
+        for ctype in ["B_cell", "Monocyte_CD14", "DC"]:
+            sub = ag[ag["cell_type_marker"] == ctype]
+            if sub.empty:
+                continue
+            lines.append(f"**{ctype.replace('_', ' ')}**")
+            ctrl = sub[sub["condition"] == "control"]["antigen_presentation_score"]
+            if ctrl.empty:
+                continue
+            ctrl_v = float(ctrl.iloc[0])
+            for cond in ["PSNP_40nm", "PSNP_200nm", "PSNP_mix_40_200"]:
+                row = sub[sub["condition"] == cond]
+                if row.empty:
+                    continue
+                v = float(row["antigen_presentation_score"].iloc[0])
+                d = v - ctrl_v
+                lines.append(
+                    f"  - {CONDITION_LABELS.get(cond, cond)}: {v:.3f} (Δ {d:+.3f} vs control)"
+                )
+            lines.append("")
+
+    lines.extend(
+        [
+            "## 2. Pseudobulk matrica",
+            "",
+            "**Šta se radi:** Za svaku kombinaciju `condition × cell_type` sabiraju se sirovi UMI",
+            "brojevi po genu (iz `layers['counts']`).",
+            "",
+        "**Šta znači:** Omogućava bulk RNA-seq stil analizu (DESeq2, edgeR) bez ponovnog",
+        "učitavanja pojedinačnih ćelija. Broj grupa = broj uslova × broj tipova ćelija.",
+            "",
+            "## 3. Validacija anotacije",
+            "",
+            "**Šta se radi:** Porede se tri nezavisna izvora tipova ćelija:",
+            "marker panel (pipeline), CoDi (Zenodo CSV), Azimuth PBMC referenca (opciono).",
+            "",
+        ]
+    )
+
+    if agreement is not None and not agreement.empty:
+        lines.append("| Metrika | Vrednost | Značenje |")
+        lines.append("|---------|----------|----------|")
+        for _, r in agreement.iterrows():
+            val = r["value"]
+            val_s = f"{val:.3f}" if pd.notna(val) else "n/a"
+            lines.append(f"| {r['metric']} | {val_s} | {r['description']} |")
+        lines.append("")
+        lines.extend(
+            [
+                "**Kako čitati:**",
+                "- 100% slaganje je retko — NK/CD8 i granularnost tipova razlikuju metode.",
+                "- ~45–65% je tipično za PBMC sa više anotacionih šema.",
+                "- Azimuth mean score > 0.85 = visoko poverenje u referentno mapiranje.",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## 4. Figure",
+            "",
+            "- `results/figures/additional_analyses/module_scores_by_condition.png` — bar chart modula",
+            "- `results/figures/additional_analyses/module_scores_violin.png` — raspodela po uslovu",
+            "- `results/figures/additional_analyses/antigen_presentation_heatmap.png`",
+            "- `results/figures/additional_analyses/annotation_agreement_bar.png`",
+            "- `results/figures/additional_analyses/annotation_confusion_marker_azimuth.png` (ako postoji Azimuth)",
+            "",
+        ]
+    )
+
+    out.write_text("\n".join(lines), encoding="utf-8")
+    log.log(f"  Saved: {out}")
+    return out
+
+
+def plot_additional_analysis_figures(
+    adata: sc.AnnData,
+    module_tables: Dict[str, pd.DataFrame],
+    agreement: pd.DataFrame,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> List[Path]:
+    log.log("  [6/6] Plotting additional analysis figures...")
+    fig_dir = paths["results"] / "figures" / "additional_analyses"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    saved: List[Path] = []
+
+    by_cond = module_tables.get("by_condition")
+    if by_cond is not None and not by_cond.empty:
+        plot_df = by_cond.melt(
+            id_vars=["condition"], var_name="module", value_name="score"
+        )
+        plot_df["condition"] = plot_df["condition"].astype(str)
+        plot_df["condition_label"] = plot_df["condition"].map(CONDITION_LABELS)
+        plot_df["condition_label"] = plot_df["condition_label"].fillna(plot_df["condition"])
+        order = [CONDITION_LABELS[c] for c in CONDITION_ORDER if c in set(by_cond["condition"])]
+
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        sns.barplot(
+            data=plot_df,
+            x="module",
+            y="score",
+            hue="condition_label",
+            hue_order=order,
+            ax=ax,
+            palette=[CONDITION_COLORS[c] for c in CONDITION_ORDER],
+        )
+        ax.axhline(0, color="#888888", linewidth=0.8)
+        ax.set_title("Gene module scores by condition")
+        ax.set_xlabel("Module")
+        ax.set_ylabel("Mean score")
+        ax.legend(title="Condition", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
+        plt.tight_layout()
+        p = fig_dir / "module_scores_by_condition.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(p)
+
+        score_cols = [c for c in MODULE_SCORE_COLUMNS if c in adata.obs.columns]
+        if score_cols:
+            long_obs = adata.obs[["condition"] + list(score_cols)].copy()
+            long_obs["condition"] = long_obs["condition"].astype(str)
+            long_obs = long_obs.melt(
+                id_vars=["condition"], var_name="module", value_name="score"
+            )
+            long_obs["condition_label"] = long_obs["condition"].map(CONDITION_LABELS)
+            long_obs["condition_label"] = long_obs["condition_label"].fillna(long_obs["condition"])
+            fig, axes = plt.subplots(1, len(score_cols), figsize=(4 * len(score_cols), 4))
+            if len(score_cols) == 1:
+                axes = [axes]
+            for ax, mod in zip(axes, score_cols):
+                sns.violinplot(
+                    data=long_obs[long_obs["module"] == mod],
+                    x="condition_label",
+                    y="score",
+                    order=order,
+                    ax=ax,
+                    palette=[CONDITION_COLORS[c] for c in CONDITION_ORDER],
+                    cut=0,
+                    inner="quartile",
+                )
+                ax.set_title(mod)
+                ax.tick_params(axis="x", rotation=25)
+                ax.set_xlabel("")
+            fig.suptitle("Module score distributions per condition", y=1.02)
+            plt.tight_layout()
+            p = fig_dir / "module_scores_violin.png"
+            fig.savefig(p, dpi=200, bbox_inches="tight")
+            plt.close(fig)
+            saved.append(p)
+
+    ag = module_tables.get("antigen")
+    if ag is not None and not ag.empty:
+        pivot = ag.pivot_table(
+            index="cell_type_marker",
+            columns="condition",
+            values="antigen_presentation_score",
+            aggfunc="first",
+        )
+        pivot = pivot.reindex(columns=[c for c in CONDITION_ORDER if c in pivot.columns])
+        pivot.index = [str(i).replace("_", " ") for i in pivot.index]
+        pivot.columns = [CONDITION_LABELS.get(c, c) for c in pivot.columns]
+        fig_h = max(4.5, 0.35 * len(pivot) + 1.5)
+        fig, ax = plt.subplots(figsize=(6.5, fig_h))
+        sns.heatmap(
+            pivot,
+            ax=ax,
+            cmap="viridis",
+            linewidths=0.4,
+            linecolor="white",
+            cbar_kws={"label": "Mean antigen presentation score", "shrink": 0.7},
+        )
+        ax.set_title("Antigen presentation module by cell type and condition")
+        plt.tight_layout()
+        p = fig_dir / "antigen_presentation_heatmap.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(p)
+
+    if agreement is not None and not agreement.empty:
+        plot_ag = agreement[agreement["metric"].str.contains("agreement|mean_score")].copy()
+        fig, ax = plt.subplots(figsize=(7, 4))
+        sns.barplot(data=plot_ag, x="metric", y="value", ax=ax, color="#4C72B0")
+        ax.set_ylim(0, 1.05)
+        ax.set_ylabel("Fraction / mean score")
+        ax.set_title("Annotation agreement metrics")
+        ax.tick_params(axis="x", rotation=30, labelsize=8)
+        plt.tight_layout()
+        p = fig_dir / "annotation_agreement_bar.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(p)
+
+    if "azimuth_l1" in adata.obs.columns:
+        ct = pd.crosstab(
+            adata.obs["cell_type_marker"].astype(str),
+            adata.obs["azimuth_l1"].astype(str),
+        )
+        fig, ax = plt.subplots(figsize=(9, 6))
+        sns.heatmap(ct, ax=ax, cmap="Blues", linewidths=0.3, cbar_kws={"label": "Cell count"})
+        ax.set_title("Marker annotation vs Azimuth L1 labels")
+        ax.set_xlabel("Azimuth L1")
+        ax.set_ylabel("Marker-based type")
+        plt.tight_layout()
+        p = fig_dir / "annotation_confusion_marker_azimuth.png"
+        fig.savefig(p, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(p)
+
+    log.log(f"  Saved {len(saved)} figure(s) under {fig_dir}")
+    return saved
+
+
+def additional_insights(
+    adata: sc.AnnData,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+    *,
+    plot_figures: bool = True,
+    write_interpretation: bool = True,
+) -> None:
+    """
+    Additional analyses (STEP 9): module scores, pseudobulk, annotation validation.
+
+    Can also be run standalone via scripts/run_additional_analyses.py.
+    Requires module scores in adata.obs (computed before HVG subset in merge_and_integrate).
+    """
+    has_azimuth = attach_azimuth_labels(adata, paths, log)
+    module_tables = _export_module_score_tables(adata, paths, log)
+    _export_pseudobulk(adata, paths, log)
+    agreement = _export_annotation_agreement(adata, paths, log, has_azimuth)
+
+    if write_interpretation:
+        write_additional_analyses_interpretation(module_tables, agreement, paths, log)
+    if plot_figures:
+        plot_additional_analysis_figures(adata, module_tables, agreement, paths, log)
+
+
+def load_integrated_adata(paths: Dict[str, Path], log: PipelineLogger) -> sc.AnnData:
+    """Load processed object for standalone additional-analysis runs."""
+    h5ad = paths["processed"] / "integrated_annotated.h5ad"
+    if not h5ad.exists():
+        raise FileNotFoundError(
+            f"Missing {h5ad}. Run first: python scripts/run_pipeline.py"
+        )
+    log.log(f"  Loading {h5ad} ...")
+    adata = sc.read_h5ad(h5ad)
+    log.log(f"  Loaded {adata.n_obs:,} cells x {adata.n_vars:,} genes")
+
+    missing_scores = [c for c in MODULE_SCORE_COLUMNS if c not in adata.obs.columns]
+    if missing_scores:
+        log.log(
+            f"  Warning: missing module scores {missing_scores}. "
+            "Re-run full pipeline merge step or scores will be incomplete."
+        )
+
+    if "cell_type_codi_norm" not in adata.obs.columns:
+        log.log("  CoDi labels missing from object — reloading from CSV...")
+        load_codi_annotations(paths, adata, log)
+
+    return adata
+
+
+def _umap_point_size(n_obs: int) -> float:
+    if n_obs > 25000:
+        return 6.0
+    if n_obs > 15000:
+        return 10.0
+    return 14.0
+
+
+def _save_scanpy_umap(
+    adata: sc.AnnData,
+    path: Path,
+    *,
+    color,
+    title: str = "",
+    palette=None,
+    cmap=None,
+    legend_loc: str = "right margin",
+    ncols: int = 1,
+    vmin=None,
+    vmax=None,
+) -> None:
+    pt_size = _umap_point_size(adata.n_obs)
+    kwargs = {
+        "color": color,
+        "show": False,
+        "size": pt_size,
+        "alpha": 0.75,
+        "frameon": False,
+        "legend_loc": legend_loc,
+        "title": title,
+        "ncols": ncols,
+        "wspace": 0.35,
+    }
+    if palette is not None:
+        kwargs["palette"] = palette
+    if cmap is not None:
+        kwargs["cmap"] = cmap
+    if vmin is not None:
+        kwargs["vmin"] = vmin
+    if vmax is not None:
+        kwargs["vmax"] = vmax
+
+    width = 5.5 * ncols + 1.5
+    height = 5.0 if ncols == 1 else 4.5
+    sc.pl.umap(adata, **kwargs)
+    fig = plt.gcf()
+    fig.set_size_inches(width, height)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _save_umap_split_by_condition(adata: sc.AnnData, path: Path) -> None:
+    umap = adata.obsm["X_umap"]
+    conditions = [c for c in CONDITION_COLORS if c in set(adata.obs["condition"].astype(str))]
+    if not conditions:
+        conditions = sorted(adata.obs["condition"].astype(str).unique())
+
+    fig, axes = plt.subplots(2, 2, figsize=(13, 11))
+    for ax, cond in zip(axes.flat, conditions):
+        mask = adata.obs["condition"].astype(str) == cond
+        ax.scatter(
+            umap[:, 0],
+            umap[:, 1],
+            c="#d9d9d9",
+            s=1.5,
+            alpha=0.25,
+            linewidths=0,
+            rasterized=True,
+        )
+        ax.scatter(
+            umap[mask, 0],
+            umap[mask, 1],
+            c=CONDITION_COLORS.get(cond, "#333333"),
+            s=4.0,
+            alpha=0.85,
+            linewidths=0,
+            rasterized=True,
+        )
+        ax.set_title(CONDITION_LABELS.get(cond, cond), fontsize=12, fontweight="bold")
+        ax.set_xlabel("UMAP 1")
+        ax.set_ylabel("UMAP 2")
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    fig.suptitle("UMAP split by experimental condition", fontsize=14, fontweight="bold", y=0.98)
+    fig.tight_layout()
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
 
 def save_core_figures(
-    adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger
+    adata: sc.AnnData,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+    cfg: Optional[Dict] = None,
+    marker_dict: Optional[Dict[str, List[str]]] = None,
 ) -> List[str]:
     saved = []
     fig_dir = paths["results"] / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
 
-    sc.pl.umap(adata, color=["condition"], show=False)
+    condition_palette = {
+        cond: CONDITION_COLORS.get(cond, "#888888")
+        for cond in sorted(adata.obs["condition"].astype(str).unique())
+    }
+
     f1 = fig_dir / "umap_condition.png"
-    plt.savefig(f1, dpi=300, bbox_inches="tight")
-    plt.close()
+    _save_scanpy_umap(
+        adata,
+        f1,
+        color=["condition"],
+        title="Experimental condition (post-Combat integration)",
+        palette=condition_palette,
+    )
     saved.append(f1.name)
     log.log(f"  Saved: {f1}")
 
-    sc.pl.umap(adata, color=["cluster"], show=False)
     f2 = fig_dir / "umap_clusters.png"
-    plt.savefig(f2, dpi=300, bbox_inches="tight")
-    plt.close()
+    _save_scanpy_umap(adata, f2, color=["cluster"], title="Leiden clusters")
     saved.append(f2.name)
     log.log(f"  Saved: {f2}")
 
-    sc.pl.umap(adata, color=["cell_type_marker"], legend_loc="on data", show=False)
     f3 = fig_dir / "umap_celltypes_marker.png"
-    plt.savefig(f3, dpi=300, bbox_inches="tight")
-    plt.close()
+    _save_scanpy_umap(
+        adata,
+        f3,
+        color=["cell_type_marker"],
+        title="Marker-based PBMC cell types",
+    )
     saved.append(f3.name)
     log.log(f"  Saved: {f3}")
+
+    f4 = fig_dir / "umap_split_by_condition.png"
+    _save_umap_split_by_condition(adata, f4)
+    saved.append(f4.name)
+    log.log(f"  Saved: {f4}")
+
+    f5 = fig_dir / "umap_sample_integration.png"
+    _save_scanpy_umap(
+        adata,
+        f5,
+        color=["sample_id"],
+        title="Sample / batch integration check",
+    )
+    saved.append(f5.name)
+    log.log(f"  Saved: {f5}")
+
+    score_cols = [
+        c
+        for c in ("S_score", "G2M_score", "IFN_score")
+        if c in adata.obs.columns and adata.obs[c].notna().any()
+    ]
+    if score_cols:
+        f6 = fig_dir / "umap_module_scores.png"
+        _save_scanpy_umap(
+            adata,
+            f6,
+            color=score_cols,
+            title="",
+            cmap="RdYlBu_r",
+            legend_loc="right margin",
+            ncols=len(score_cols),
+            vmin="p5",
+            vmax="p95",
+        )
+        saved.append(f6.name)
+        log.log(f"  Saved: {f6}")
+
+    codi_mapped = (
+        "cell_type_codi" in adata.obs.columns
+        and (adata.obs["cell_type_codi"].astype(str) != "NA").mean() > 0.05
+    )
+    if codi_mapped:
+        f7 = fig_dir / "umap_codi_celltypes.png"
+        _save_scanpy_umap(
+            adata,
+            f7,
+            color=["cell_type_codi"],
+            title="CoDi reference cell types",
+        )
+        saved.append(f7.name)
+        log.log(f"  Saved: {f7}")
+
+    if marker_dict or cfg:
+        panels = marker_dict or (resolve_marker_dict(cfg, paths, log) if cfg else {})
+        marker_dict_filtered = {
+            ct: [g for g in genes if g in adata.var_names]
+            for ct, genes in panels.items()
+        }
+        marker_dict_filtered = {ct: genes for ct, genes in marker_dict_filtered.items() if genes}
+        if marker_dict_filtered:
+            f8 = fig_dir / "marker_dotplot.png"
+            sc.pl.dotplot(
+                adata,
+                var_names=marker_dict_filtered,
+                groupby="cell_type_marker",
+                standard_scale="var",
+                show=False,
+                dendrogram=False,
+            )
+            plt.gcf().set_size_inches(12, 5)
+            plt.savefig(f8, dpi=300, bbox_inches="tight")
+            plt.close()
+            saved.append(f8.name)
+            log.log(f"  Saved: {f8}")
 
     return saved
 
@@ -621,25 +1796,50 @@ def explain_tables(log: PipelineLogger) -> None:
             "Wilcoxon DE results: each exposure vs control, stratified by cell type."
         ),
         "pathway_enrichment_all.csv": (
-            "Enrichr hits (GO/KEGG/Reactome) for significant upregulated genes."
+            "Enrichr hits (GO/KEGG/Reactome) for significant UP and DOWN DE genes; "
+            "includes direction column. Figures in results/figures/pathway_enrichment/."
         ),
         "size_specific_effects_summary.csv": (
             "Counts of DE genes unique to 40 nm, 200 nm, shared, or mix-only effects."
         ),
+        "size_specific_genes.csv": (
+            "Gene lists per cell type and size-effect class with logFC from the primary comparison."
+        ),
+        "size_specific_pathway_enrichment.csv": (
+            "Enrichr hits (GO/KEGG/Reactome) for UP genes in each size-effect class."
+        ),
+        "size_specific_interpretation.csv": (
+            "Top genes, top pathways, and short biological notes per size-effect class."
+        ),
         "cell_cycle_scores_by_condition.csv": (
-            "Mean S and G2M phase scores - proxy for proliferation/stress."
+            "Mean S and G2M phase scores per condition (subset of module_scores_by_condition)."
         ),
         "ifn_scores_by_condition.csv": (
-            "Mean interferon signature - innate immune activation."
+            "Mean interferon module score per condition."
+        ),
+        "module_scores_by_condition.csv": (
+            "All module scores (S, G2M, IFN, antigen presentation) averaged per condition."
+        ),
+        "module_scores_by_condition_celltype.csv": (
+            "Module scores per condition and marker-based cell type."
         ),
         "antigen_presentation_scores.csv": (
-            "Mean HLA-related score by condition and cell type."
+            "Mean HLA/MHC module score by condition and cell type."
         ),
         "pseudobulk_counts_condition_celltype.csv": (
-            "Summed UMI counts per conditionxcell type for bulk-style follow-up."
+            "Summed UMI counts per condition x cell type for bulk-style follow-up."
         ),
         "annotation_agreement_metrics.csv": (
-            "Fraction of cells where CoDi reference label matches marker annotation."
+            "CoDi/marker/Azimuth agreement fractions and mean Azimuth score."
+        ),
+        "annotation_crosstab_marker_codi.csv": (
+            "Cell counts: marker-based type vs normalized CoDi label."
+        ),
+        "annotation_crosstab_marker_azimuth.csv": (
+            "Cell counts: marker-based type vs Azimuth L1 label."
+        ),
+        "additional_analyses_interpretation_SR.md": (
+            "Serbian interpretation of additional analyses tables and figures."
         ),
     }
     for name, text in guides.items():
@@ -692,11 +1892,12 @@ def main():
         adata = merge_and_integrate(adata, cfg, log)
 
         log.section("STEP 3 - CELL-TYPE ANNOTATION")
-        marker_based_annotation(adata, cfg["markers"], log)
+        marker_dict = resolve_marker_dict(cfg, paths, log)
+        marker_based_annotation(adata, marker_dict, log)
         load_codi_annotations(paths, adata, log)
 
         log.section("STEP 4 - CORE UMAP FIGURES")
-        save_core_figures(adata, paths, log)
+        save_core_figures(adata, paths, log, cfg, marker_dict=marker_dict)
 
         log.section("STEP 5 - CELL COMPOSITION")
         log.log("  Comparing immune cell proportions across PSNP conditions vs control...")
@@ -709,7 +1910,8 @@ def main():
         de_all = differential_expression_by_celltype(adata, cfg, paths, log)
 
         log.section("STEP 7 - PATHWAY ENRICHMENT")
-        pathway_enrichment(de_all, cfg, paths, log)
+        enr_all = pathway_enrichment(de_all, cfg, paths, log)
+        plot_pathway_enrichment_figures(enr_all, cfg, paths, log)
 
         log.section("STEP 8 - SIZE-SPECIFIC EFFECTS")
         size_specific_effects(de_all, cfg, paths, log)
