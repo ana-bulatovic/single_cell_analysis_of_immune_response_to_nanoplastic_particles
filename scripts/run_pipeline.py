@@ -27,6 +27,17 @@ import seaborn as sns
 import yaml
 from scipy import sparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from annotation_methods import (
+    PRIMARY_CELL_TYPE_EXCLUDE,
+    assign_primary_cell_type,
+    export_method_agreement,
+    load_codi_annotations,
+    load_seurat_annotations,
+    run_python_reference_methods,
+    validate_with_literature_markers,
+)
+
 
 class PipelineLogger:
     """Mirror messages to stdout and to a timestamped run log file."""
@@ -149,6 +160,7 @@ def load_config(path: str = "config/config.yaml") -> Dict:
 
 def setup_paths(cfg: Dict) -> Dict[str, Path]:
     paths = {
+        "project_root": Path(__file__).resolve().parent.parent,
         "raw": Path(cfg["data"]["raw_dir"]),
         "processed": Path(cfg["data"]["processed_dir"]),
         "results": Path(cfg["data"]["results_dir"]),
@@ -307,7 +319,9 @@ def score_gene_modules(adata: sc.AnnData, log: PipelineLogger) -> None:
         adata.obs["antigen_presentation_score"] = np.nan
 
 
-def merge_and_integrate(adata: sc.AnnData, cfg: Dict, log: PipelineLogger) -> sc.AnnData:
+def merge_and_integrate(
+    adata: sc.AnnData, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+) -> sc.AnnData:
     adata.obs_names_make_unique()
     adata.layers["counts"] = adata.X.copy()
     log.log(f"  Merged object: {adata.n_obs:,} cells x {adata.n_vars:,} genes")
@@ -317,6 +331,10 @@ def merge_and_integrate(adata: sc.AnnData, cfg: Dict, log: PipelineLogger) -> sc
     sc.pp.log1p(adata)
 
     score_gene_modules(adata, log)
+
+    pre_hvg_path = paths["processed"] / "integrated_pre_hvg.h5ad"
+    log.log(f"  Saving pre-HVG object for ref.Rds mapping tools: {pre_hvg_path}")
+    adata.write(pre_hvg_path)
 
     log.log(f"  Selecting top {cfg['preprocessing']['n_hvgs']} highly variable genes (HVG, seurat flavor)...")
     sc.pp.highly_variable_genes(
@@ -416,7 +434,7 @@ def resolve_marker_dict(
     curated = _curated_markers_from_config(cfg)
 
     if not az_cfg.get("use_panels_for_pipeline", False):
-        log.log("  Marker source: curated panels from config.yaml")
+        log.log("  Marker source: curated literature panels from config.yaml (validation)")
         return curated
 
     panel_path = _azimuth_marker_panel_path(cfg, paths)
@@ -466,55 +484,16 @@ def marker_based_annotation(
     scores_df = pd.DataFrame(score_matrix, index=adata.obs_names)
     adata.obs["cell_type_marker"] = scores_df.idxmax(axis=1).values
     counts = adata.obs["cell_type_marker"].value_counts()
-    log.log("  Cell-type counts (marker-based):")
+    log.log("  Cell-type counts (literature markers, validation):")
     for ct, n in counts.items():
         log.log(f"    {ct}: {n:,}")
-
-
-def load_codi_annotations(
-    paths: Dict[str, Path], adata: sc.AnnData, log: PipelineLogger
-) -> None:
-    log.log("  Loading external CoDi reference labels from *_CoDi_KLD.csv files...")
-    codi_files = sorted(paths["raw"].glob("*_CoDi_KLD.csv"))
-    codi_frames = []
-    for f in codi_files:
-        df = pd.read_csv(f)
-        if "cell_id" in df.columns and "CoDi" in df.columns:
-            df = df[["cell_id", "CoDi"]].copy()
-            df.columns = ["cell_id", "cell_type_codi"]
-            codi_frames.append(df)
-    if not codi_frames:
-        adata.obs["cell_type_codi"] = "NA"
-        log.log("  Warning: no CoDi CSV files found - cell_type_codi set to NA")
-        return
-
-    codi_all = pd.concat(codi_frames, ignore_index=True).drop_duplicates(subset=["cell_id"])
-    codi_all = codi_all.assign(cell_id_clean=codi_all["cell_id"].str.replace(r"-\d+$", "", regex=True))
-    codi_all = codi_all.set_index("cell_id_clean")
-    adata.obs["cell_id_clean"] = adata.obs_names.str.replace(r"-\d+$", "", regex=True)
-    adata.obs["cell_type_codi"] = adata.obs["cell_id_clean"].map(codi_all["cell_type_codi"]).fillna("NA")
-    mapped = (adata.obs["cell_type_codi"] != "NA").mean() * 100
-    log.log(f"  CoDi labels mapped to {mapped:.1f}% of cells")
-
-    codi_to_marker = {
-        "CD4+ T cell": "CD4_T",
-        "Cytotoxic T cell": "CD8_T_cytotoxic",
-        "B cell": "B_cell",
-        "CD14+ monocyte": "Monocyte_CD14",
-        "CD16+ monocyte": "Monocyte_CD16",
-        "NK cell": "NK_cell",
-        "Dendritic cell": "DC",
-        "DC": "DC",
-        "Platelet": "Platelet",
-    }
-    adata.obs["cell_type_codi_norm"] = adata.obs["cell_type_codi"].map(codi_to_marker).fillna("NA")
 
 
 def composition_analysis(
     adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger
 ) -> pd.DataFrame:
     comp = (
-        adata.obs.groupby(["condition", "cell_type_marker"])
+        adata.obs.groupby(["condition", "cell_type_primary"])
         .size()
         .reset_index(name="n_cells")
         .sort_values(["condition", "n_cells"], ascending=[True, False])
@@ -526,7 +505,7 @@ def composition_analysis(
 
     fig_path = paths["results"] / "figures" / "composition_barplot.png"
     plt.figure(figsize=(10, 5))
-    sns.barplot(data=comp, x="condition", y="fraction", hue="cell_type_marker")
+    sns.barplot(data=comp, x="condition", y="fraction", hue="cell_type_primary")
     plt.xticks(rotation=25, ha="right")
     plt.tight_layout()
     plt.savefig(fig_path, dpi=300)
@@ -541,8 +520,10 @@ def differential_expression_by_celltype(
     conditions = ["PSNP_40nm", "PSNP_200nm", "PSNP_mix_40_200"]
     all_de = []
     comparisons_run = 0
-    for ctype in sorted(adata.obs["cell_type_marker"].unique()):
-        ad_ct = adata[adata.obs["cell_type_marker"] == ctype].copy()
+    for ctype in sorted(adata.obs["cell_type_primary"].unique()):
+        if ctype in PRIMARY_CELL_TYPE_EXCLUDE:
+            continue
+        ad_ct = adata[adata.obs["cell_type_primary"] == ctype].copy()
         if ad_ct.n_obs < cfg["de"]["min_cells_per_group"]:
             continue
 
@@ -1103,34 +1084,12 @@ def size_specific_effects(
 
 
 def attach_azimuth_labels(
-    adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger
+    adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger, cfg: Optional[Dict] = None
 ) -> bool:
-    """Merge Azimuth L1 labels onto adata.obs for cross-validation tables."""
-    az_path = paths["results"] / "tables" / "azimuth_annotations.csv"
-    if not az_path.exists():
-        log.log("  Azimuth CSV not found — skipping Azimuth agreement metrics.")
-        return False
-
-    az = pd.read_csv(az_path)
-    az = az.assign(
-        cell_id_clean=az["cell_id"].astype(str).str.replace(r"-\d+$", "", regex=True)
-    )
-    if "cell_id_clean" not in adata.obs.columns:
-        adata.obs["cell_id_clean"] = adata.obs_names.str.replace(r"-\d+$", "", regex=True)
-
-    az_map = az.set_index("cell_id_clean")
-    adata.obs["azimuth_l1"] = (
-        adata.obs["cell_id_clean"].map(az_map["predicted.celltype.l1"]).fillna("NA")
-    )
-    adata.obs["azimuth_score"] = (
-        adata.obs["cell_id_clean"].map(az_map["prediction.score.max"]).astype(float)
-    )
-    adata.obs["azimuth_l1_norm"] = (
-        adata.obs["azimuth_l1"].map(AZIMUTH_L1_TO_MARKER).fillna("NA")
-    )
-    mapped = (adata.obs["azimuth_l1"] != "NA").mean() * 100
-    log.log(f"  Azimuth labels mapped to {mapped:.1f}% of cells")
-    return True
+    """Merge Seurat/Azimuth labels (ref.Rds) for cross-validation tables."""
+    if cfg is None:
+        cfg = load_config()
+    return load_seurat_annotations(adata, paths, cfg, log)
 
 
 def _export_module_score_tables(
@@ -1159,14 +1118,15 @@ def _export_module_score_tables(
 
     log.log("  [2/6] Module scores by condition x cell type...")
     by_ct = (
-        adata.obs.groupby(["condition", "cell_type_marker"], observed=False)[score_cols]
+        adata.obs.groupby(["condition", "cell_type_primary"], observed=False)[score_cols]
         .mean()
         .reset_index()
     )
     by_ct.to_csv(paths["results"] / "tables" / "module_scores_by_condition_celltype.csv", index=False)
     tables["by_condition_celltype"] = by_ct
 
-    ag = by_ct[["condition", "cell_type_marker", "antigen_presentation_score"]].copy()
+    ag = by_ct[["condition", "cell_type_primary", "antigen_presentation_score"]].copy()
+    ag = ag.rename(columns={"cell_type_primary": "cell_type_marker"})
     ag.to_csv(paths["results"] / "tables" / "antigen_presentation_scores.csv", index=False)
     tables["antigen"] = ag
     log.log("  Saved: module_scores_by_condition_celltype.csv, antigen_presentation_scores.csv")
@@ -1185,7 +1145,7 @@ def _export_pseudobulk(adata: sc.AnnData, paths: Dict[str, Path], log: PipelineL
         pd.DataFrame(matrix, index=adata.obs_names, columns=adata.var_names)
         .assign(
             condition=adata.obs["condition"].astype(str).values,
-            cell_type=adata.obs["cell_type_marker"].astype(str).values,
+            cell_type=adata.obs["cell_type_primary"].astype(str).values,
         )
         .groupby(["condition", "cell_type"], observed=False)
         .sum()
@@ -1199,16 +1159,31 @@ def _export_pseudobulk(adata: sc.AnnData, paths: Dict[str, Path], log: PipelineL
 def _export_annotation_agreement(
     adata: sc.AnnData, paths: Dict[str, Path], log: PipelineLogger, has_azimuth: bool
 ) -> pd.DataFrame:
-    log.log("  [4/6] Annotation cross-validation (CoDi / marker / Azimuth)...")
+    log.log("  [4/6] Annotation cross-validation (ref.Rds / literature markers / CoDi)...")
     marker = adata.obs["cell_type_marker"].astype(str)
     codi = adata.obs["cell_type_codi_norm"].astype(str)
     valid_codi = codi != "NA"
+    ref = (
+        adata.obs["cell_type_ref"].astype(str)
+        if "cell_type_ref" in adata.obs.columns
+        else adata.obs.get("cell_type_primary", marker).astype(str)
+    )
 
     rows = [
         {
+            "metric": "ref_marker_agreement",
+            "value": float((ref == marker).mean()),
+            "description": "Fraction of cells where ref.Rds primary label matches literature markers",
+        },
+        {
             "metric": "codi_marker_agreement",
             "value": float((codi[valid_codi] == marker[valid_codi]).mean()) if valid_codi.any() else np.nan,
-            "description": "Fraction of CoDi-mapped cells with same label as marker annotation",
+            "description": "Fraction of CoDi-mapped cells with same label as literature markers",
+        },
+        {
+            "metric": "codi_ref_agreement",
+            "value": float((codi[valid_codi] == ref[valid_codi]).mean()) if valid_codi.any() else np.nan,
+            "description": "Fraction of CoDi-mapped cells with same label as ref.Rds primary",
         },
         {
             "metric": "codi_mapped_fraction",
@@ -1251,6 +1226,10 @@ def _export_annotation_agreement(
         ctab = pd.crosstab(marker, adata.obs["azimuth_l1"], margins=True)
         ctab.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_azimuth.csv")
         log.log("  Saved: annotation_crosstab_marker_azimuth.csv")
+
+        ctab_ref = pd.crosstab(ref, marker, margins=True)
+        ctab_ref.to_csv(paths["results"] / "tables" / "annotation_crosstab_ref_marker.csv")
+        log.log("  Saved: annotation_crosstab_ref_marker.csv")
 
     ctab_codi = pd.crosstab(marker, codi, margins=True)
     ctab_codi.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_codi.csv")
@@ -1567,7 +1546,8 @@ def additional_insights(
     Can also be run standalone via scripts/run_additional_analyses.py.
     Requires module scores in adata.obs (computed before HVG subset in merge_and_integrate).
     """
-    has_azimuth = attach_azimuth_labels(adata, paths, log)
+    cfg = load_config()
+    has_azimuth = attach_azimuth_labels(adata, paths, log, cfg)
     module_tables = _export_module_score_tables(adata, paths, log)
     _export_pseudobulk(adata, paths, log)
     agreement = _export_annotation_agreement(adata, paths, log, has_azimuth)
@@ -1598,7 +1578,17 @@ def load_integrated_adata(paths: Dict[str, Path], log: PipelineLogger) -> sc.Ann
 
     if "cell_type_codi_norm" not in adata.obs.columns:
         log.log("  CoDi labels missing from object — reloading from CSV...")
-        load_codi_annotations(paths, adata, log)
+        load_codi_annotations(adata, paths, log)
+
+    if "cell_type_primary" not in adata.obs.columns:
+        log.log("  Primary annotation missing — recomputing from config + annotation CSVs...")
+        cfg = load_config()
+        if "cell_type_marker" not in adata.obs.columns:
+            marker_dict = resolve_marker_dict(cfg, paths, log)
+            marker_based_annotation(adata, marker_dict, log)
+        load_seurat_annotations(adata, paths, cfg, log)
+        run_python_reference_methods(adata, paths, cfg, log)
+        assign_primary_cell_type(adata, cfg, log)
 
     return adata
 
@@ -1730,10 +1720,21 @@ def save_core_figures(
         adata,
         f3,
         color=["cell_type_marker"],
-        title="Marker-based PBMC cell types",
+        title="Literaturini markeri (validacija)",
     )
     saved.append(f3.name)
     log.log(f"  Saved: {f3}")
+
+    if "cell_type_seurat" in adata.obs.columns:
+        f3b = fig_dir / "umap_celltypes_seurat.png"
+        _save_scanpy_umap(
+            adata,
+            f3b,
+            color=["cell_type_seurat"],
+            title="Seurat/Azimuth anotacija (ref.Rds, primarna)",
+        )
+        saved.append(f3b.name)
+        log.log(f"  Saved: {f3b}")
 
     f4 = fig_dir / "umap_split_by_condition.png"
     _save_umap_split_by_condition(adata, f4)
@@ -1803,6 +1804,7 @@ def save_core_figures(
                 show=False,
                 dendrogram=False,
             )
+            plt.gcf().suptitle("Literaturini markeri po marker-anotaciji (validacija)", y=1.02)
             plt.gcf().set_size_inches(12, 5)
             plt.savefig(f8, dpi=300, bbox_inches="tight")
             plt.close()
@@ -1940,12 +1942,18 @@ def main():
             f"  All samples merged: {adata.n_obs:,} cells x {adata.n_vars:,} genes "
             "(incremental concat, inner join)"
         )
-        adata = merge_and_integrate(adata, cfg, log)
+        adata = merge_and_integrate(adata, cfg, paths, log)
 
-        log.section("STEP 3 - CELL-TYPE ANNOTATION")
+        log.section("STEP 3 - CELL-TYPE ANNOTATION (ref.Rds reference atlas)")
+        log.log("  Methods: Seurat, CoDi, Tangram, cell2location | Validation: literature markers")
         marker_dict = resolve_marker_dict(cfg, paths, log)
         marker_based_annotation(adata, marker_dict, log)
-        load_codi_annotations(paths, adata, log)
+        load_codi_annotations(adata, paths, log)
+        load_seurat_annotations(adata, paths, cfg, log)
+        run_python_reference_methods(adata, paths, cfg, log)
+        assign_primary_cell_type(adata, cfg, log)
+        validate_with_literature_markers(adata, marker_dict, paths, log)
+        export_method_agreement(adata, paths, log)
 
         log.section("STEP 4 - CORE UMAP FIGURES")
         save_core_figures(adata, paths, log, cfg, marker_dict=marker_dict)
@@ -1983,7 +1991,13 @@ def main():
         log.section("PIPELINE COMPLETE")
         log.log("  All steps finished successfully.")
         log.log(f"  Full run log copied to: {log.log_path.resolve()}")
-        log.log("  Next optional step: Rscript scripts/azimuth_annotation.R for Azimuth labels.")
+        log.log("  ref.Rds annotation workflow:")
+        log.log("    1) python scripts/download_data.py          # ref.Rds + idx.annoy")
+        log.log("    2) python scripts/run_pipeline.py           # creates integrated_pre_hvg.h5ad")
+        log.log("    3) python scripts/prepare_azimuth_h5ad.py")
+        log.log("    4) Rscript scripts/azimuth_annotation.R    # Seurat + ref.Rds")
+        log.log("    5) python scripts/run_reference_annotation.py  # Tangram + cell2location")
+        log.log("    6) python scripts/run_pipeline.py           # full analysis with all labels")
 
     except Exception as exc:
         log.section("PIPELINE FAILED")

@@ -13,3 +13,5 @@ pyyaml>=6.0
 requests>=2.32
 leidenalg>=0.10
 python-igraph>=0.11
+# Optional for Tangram reference mapping:
+# tangram-sc>=1.0

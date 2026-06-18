@@ -64,7 +64,7 @@ python scripts/run_pipeline.py
 |-------|----------|
 | 1 QC | Filtriranje ćelija (`min_genes`, `max_genes`, `min_counts`, `max_mt_percent`) |
 | 2 Integracija | Normalizacija, **module score na punom transkriptomu**, HVG (3000), Combat, UMAP, Leiden |
-| 3 Anotacija | Marker paneli (Azimuth-izvedeni ili `config.yaml`) + CoDi CSV |
+| 3 Anotacija | **ref.Rds** atlas: Seurat, CoDi, Tangram, cell2location + validacija literaturnim markerima |
 | 4 Figure | UMAP, dotplot, module score mape |
 | 5 Kompozicija | Proporcije tipova po uslovu |
 | 6 DE | Wilcoxon po tipu ćelije, svaki exposure vs control |
@@ -73,11 +73,33 @@ python scripts/run_pipeline.py
 | 9 **Dodatne analize** | Module score tabele, pseudobulk, CoDi/Azimuth validacija, figure, interpretacija |
 | 10 Save | `data/processed/integrated_annotated.h5ad` |
 
-### Anotacija ćelija
+### Anotacija ćelija (ref.Rds + 4 metode)
+
+Profesorov workflow: referentni atlas `ref.Rds` + Seurat/CoDi/Tangram/cell2location, provera markerima iz literature.
+
+```bash
+python scripts/download_data.py              # ref.Rds + idx.annoy
+python scripts/run_pipeline.py               # integracija
+python scripts/prepare_azimuth_h5ad.py
+Rscript scripts/azimuth_annotation.R         # Seurat + ref.Rds
+python scripts/run_reference_annotation.py   # Tangram + cell2location
+python scripts/run_pipeline.py               # pun run sa svim labelama
+```
 
 U `config/config.yaml`:
-- `azimuth.use_panels_for_pipeline: true` — koristi `results/tables/azimuth_marker_panels_l1.yaml` (preporučeno posle Azimuth run-a)
-- `false` — koristi klasične markere iz `config.yaml` (`IL7R`, `LYZ`, `MS4A1`, …)
+```yaml
+annotation:
+  primary_method: seurat    # seurat | codi | tangram | cell2location | markers
+  run_seurat: true
+  run_tangram: true
+  run_cell2location: true
+```
+
+- `cell_type_primary` — za DE/kompoziciju (default: Seurat/ref.Rds)
+- `cell_type_marker` — literaturni markeri (validacija)
+- Validacioni dotploti: `results/figures/annotation_validation/`
+
+Detaljno: `deliverables/Anotacija_profesor_uputstvo_SR.md`
 
 ---
 

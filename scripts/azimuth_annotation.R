@@ -1,10 +1,10 @@
 # =============================================================================
 # Azimuth PBMC anotacija (R)
 # =============================================================================
-# Mapira integrisane celije na Satija lab PBMC referencu (Azimuth + Seurat).
+# Mapira integrisane celije na lokalni ref.Rds (Zenodo 4546839) — Seurat/Azimuth label transfer.
 #
 # Preduslov: python scripts/run_pipeline.py  -> integrated_annotated.h5ad
-#            python scripts/download_data.py -> ref.Rds (optional; pbmcref used by default)
+#            data/raw/ref.Rds + idx.annoy      (python scripts/download_data.py)
 #
 # Izlaz:  results/tables/azimuth_annotations.csv
 #         results/run_logs/azimuth_run_YYYYMMDD_HHMMSS.txt
@@ -44,9 +44,24 @@ processed_mtx <- "data/processed/azimuth_mtx"
 processed_obs <- "data/processed/azimuth_obs.csv"
 source_h5ad <- "data/processed/integrated_annotated.h5ad"
 output_csv <- "results/tables/azimuth_annotations.csv"
-# RunAzimuth expects a built-in reference name (e.g. "pbmcref") or a directory with ref.Rds + idx.annoy
-reference <- Sys.getenv("AZIMUTH_REFERENCE", unset = "pbmcref")
-reference_dir <- "data/raw"
+
+resolve_azimuth_reference <- function() {
+  env_ref <- Sys.getenv("AZIMUTH_REFERENCE", unset = "")
+  if (nzchar(env_ref)) {
+    log_msg("Using AZIMUTH_REFERENCE from environment:", env_ref)
+    return(env_ref)
+  }
+  raw_dir <- "data/raw"
+  ref_rds <- file.path(raw_dir, "ref.Rds")
+  idx_annoy <- file.path(raw_dir, "idx.annoy")
+  if (file.exists(ref_rds) && file.exists(idx_annoy)) {
+    ref_path <- normalizePath(raw_dir, winslash = "/")
+    log_msg("Using local dataset reference (ref.Rds + idx.annoy):", ref_path)
+    return(ref_path)
+  }
+  log_msg("Note: local ref.Rds/idx.annoy not found; falling back to built-in pbmcref")
+  return("pbmcref")
+}
 
 if (!file.exists(source_h5ad)) {
   log_msg("ERROR: Missing", source_h5ad, "- run: python scripts/run_pipeline.py")
@@ -60,9 +75,7 @@ if (!dir.exists(processed_mtx) || !file.exists(processed_obs)) {
     stop("Run manually: python scripts/prepare_azimuth_h5ad.py")
   }
 }
-if (!file.exists(reference_dir) || !file.exists(file.path(reference_dir, "ref.Rds"))) {
-  log_msg("Note: local ref.Rds not found; using Azimuth reference:", reference)
-}
+reference <- resolve_azimuth_reference()
 
 log_msg("Loading R packages (Seurat, Azimuth)...")
 suppressPackageStartupMessages({

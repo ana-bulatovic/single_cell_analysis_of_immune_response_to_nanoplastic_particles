@@ -9,8 +9,10 @@ data:
 
 azimuth:
   record_id: "4546839"
+  reference_dir: "data/raw"
   reference_file: "ref.Rds"
-  use_panels_for_pipeline: true
+  min_prediction_score: 0.5
+  use_panels_for_pipeline: false
   marker_panel_file: results/tables/azimuth_marker_panels_l1.yaml
   marker_fallback_types:
     - Platelet
@@ -24,6 +26,14 @@ azimuth:
     min_pct_in_group: 0.25
     max_pct_out_group: 0.2
     n_hvg: 4000
+
+# Reference-based annotation (professor workflow: ref.Rds + Seurat/CoDi/Tangram/cell2location)
+annotation:
+  primary_method: seurat          # seurat | codi | tangram | cell2location | markers
+  min_prediction_score: 0.5
+  run_seurat: true                # Seurat/Azimuth + ref.Rds (Rscript azimuth_annotation.R)
+  run_tangram: false              # optional; pip install tangram-sc
+  run_cell2location: false        # optional; signature mapping from ref.Rds
 
 samples:
   filtered_feature_bc_matrix:
