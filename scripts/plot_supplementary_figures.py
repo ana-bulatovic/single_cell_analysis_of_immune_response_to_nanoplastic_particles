@@ -79,6 +79,14 @@ def _require_table(path: Path, name: str) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def _cell_type_column(df: pd.DataFrame) -> str:
+    """Composition tables use cell_type_primary; older runs used cell_type_marker."""
+    for col in ("cell_type_primary", "cell_type_marker", "cell_type"):
+        if col in df.columns:
+            return col
+    raise KeyError("Expected a cell type column (cell_type_primary or cell_type_marker)")
+
+
 def plot_de_summary_bar(de: pd.DataFrame, cfg: Dict, out_path: Path) -> None:
     sig = de.loc[_sig_mask(de, cfg)].copy()
     counts = (
@@ -218,8 +226,9 @@ def plot_top_de_heatmap(
 
 
 def plot_composition_delta_heatmap(comp: pd.DataFrame, out_path: Path) -> None:
+    ct_col = _cell_type_column(comp)
     wide = comp.pivot_table(
-        index="cell_type_marker", columns="condition", values="fraction", aggfunc="first"
+        index=ct_col, columns="condition", values="fraction", aggfunc="first"
     )
     wide = wide.reindex(columns=[c for c in CONDITION_ORDER if c in wide.columns])
     if "control" not in wide.columns:
@@ -355,7 +364,10 @@ def plot_antigen_presentation_heatmap(ap: pd.DataFrame, out_path: Path) -> None:
         return
 
     pivot = ap.pivot_table(
-        index="cell_type_marker", columns="condition", values="antigen_presentation_score", aggfunc="first"
+        index=_cell_type_column(ap),
+        columns="condition",
+        values="antigen_presentation_score",
+        aggfunc="first",
     )
     pivot = pivot.reindex(columns=[c for c in CONDITION_ORDER if c in pivot.columns])
     pivot.index = [str(i).replace("_", " ") for i in pivot.index]
