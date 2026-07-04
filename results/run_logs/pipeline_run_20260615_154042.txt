@@ -1,0 +1,50 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:40:42
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_154042.txt
+========================================================================
+
+------------------------------------------------------------------------
+  AZIMUTH MARKER EXTRACTION
+------------------------------------------------------------------------
+  Loading expression: data\processed\integrated_annotated.h5ad
+  Object: 33,240 cells x 3,000 genes
+  Azimuth level=L1, min_score>=0.5: 32,990 / 33,240 cells retained
+  Cell counts by Azimuth label:
+    CD8 T: 13,093
+    CD4 T: 11,551
+    B: 2,625
+    NK: 2,365
+    Mono: 1,759
+    other T: 1,350
+    other: 212
+    DC: 35
+  Running Wilcoxon one-vs-rest on log-normalized counts for 8 cell types...
+  Ranked 24,000 gene x cell-type rows
+  Saved full ranking: results\tables\azimuth_marker_genes_l1.csv
+  Saved marker panels: results\tables\azimuth_marker_panels_l1.csv (77 genes)
+  Saved YAML panels: results\tables\azimuth_marker_panels_l1.yaml
+  Saved comparison to config.yaml markers: results\tables\azimuth_vs_config_markers_l1.csv
+  Saved dot plot: results\figures\azimuth_marker_dotplot_l1.png
+
+------------------------------------------------------------------------
+  TOP MARKERS PER AZIMUTH TYPE (preview)
+------------------------------------------------------------------------
+  B: MS4A1, CD79A, BANK1, HLA-DRA, HLA-DRB1, RALGPS2, HLA-DQA1, PLEKHG1, HLA-DPA1, MEF2C
+  CD4 T: TSHZ2, FAAH2, CMTM8, RP4-678D15.1, FHIT, INPP4B, APOLD1
+  CD8 T: CD8B, CD8A, PTPRK, SAMD3, MVB12B, C1orf21, ABCB1, LRRN3, NKG7, C12orf75
+  DC: HLA-DQA1, ADRBK2, HLA-DQB1, HLA-DRA, HLA-DRB1, TCF4, ALCAM, CSF2RA, MCOLN2, HLA-DPA1
+  Mono: KYNU, RP11-519G16.3, DOCK4, SLC7A11, ANPEP, CYP1B1, PLAUR, RAB31, MMP14, EREG
+  NK: GNLY, NKG7, TYROBP, GZMB, C1orf21, KLRD1, FGFBP2, METRNL, NCALD, PRF1
+  other: ATP8B4, SWAP70, TMEM164, BASP1, ZMIZ1, RAB31, GAB1, DOCK5, EMR2, CDK14
+  other T: KLRB1, GZMK, ME1, CXCR6, CEBPD, SLC4A10, ZBTB16, AC092580.4, AMICA1, ADAM12
+
+------------------------------------------------------------------------
+  DONE
+------------------------------------------------------------------------
+  Use azimuth_marker_panels_*.yaml as data-driven marker dictionary.
+
+========================================================================
+  Finished: 2026-06-15 15:49:43
+========================================================================

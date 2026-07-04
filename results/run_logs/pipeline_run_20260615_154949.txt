@@ -1,0 +1,33 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:49:49
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_154949.txt
+========================================================================
+
+------------------------------------------------------------------------
+  AZIMUTH MARKER EXTRACTION (full gene space)
+------------------------------------------------------------------------
+  Note: azimuth_annotations.csv is OLDER than integrated_annotated.h5ad. If pipeline was re-run, refresh Azimuth first:
+    python scripts/prepare_azimuth_h5ad.py
+    Rscript scripts/azimuth_annotation.R
+  Loading QC-filtered expression from data/raw/*.h5ad (full genes)...
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+  Merged raw QC object: 33,240 cells x 20,388 genes
+  Azimuth L1, score>=0.5: 32,990 / 33,240 cells kept
+    CD8 T: 13,093
+    CD4 T: 11,551
+    B: 2,625
+    NK: 2,365
+    Mono: 1,759
+    other T: 1,350
+    other: 212
+    DC: 35
+  Wilcoxon one-vs-rest on 20,388 genes, 8 Azimuth types...
+
+========================================================================
+  Finished: 2026-06-15 16:00:52
+========================================================================

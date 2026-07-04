@@ -1,0 +1,37 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 18:19:58
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_181958.txt
+========================================================================
+
+------------------------------------------------------------------------
+  ADDITIONAL ANALYSES (standalone)
+------------------------------------------------------------------------
+  Analyses: module scores, pseudobulk, CoDi/Azimuth validation
+  Input: data/processed/integrated_annotated.h5ad
+
+  Loading data\processed\integrated_annotated.h5ad ...
+  Loaded 33,240 cells x 3,000 genes
+  Azimuth labels mapped to 100.0% of cells
+  [1/6] Module scores by condition (global means)...
+  Saved: module_scores_by_condition.csv
+  [2/6] Module scores by condition x cell type...
+  Saved: module_scores_by_condition_celltype.csv, antigen_presentation_scores.csv
+  [3/6] Pseudobulk counts (sum UMIs per condition x cell type)...
+  Saved: results\tables\pseudobulk_counts_condition_celltype.csv (36 groups)
+  [4/6] Annotation cross-validation (CoDi / marker / Azimuth)...
+  Saved: annotation_crosstab_marker_azimuth.csv
+  Saved: annotation_crosstab_marker_codi.csv
+  Saved: annotation_agreement_metrics.csv (6 metrics)
+    codi_marker_agreement: 0.457
+    codi_mapped_fraction: 0.990
+    azimuth_marker_agreement: 0.643
+    azimuth_marker_agreement_score_ge_0.5: 0.642
+    codi_azimuth_agreement: 0.600
+    azimuth_mean_score: 0.908
+  [5/6] Writing interpretation report (SR)...
+
+========================================================================
+  Finished: 2026-06-15 18:20:05
+========================================================================

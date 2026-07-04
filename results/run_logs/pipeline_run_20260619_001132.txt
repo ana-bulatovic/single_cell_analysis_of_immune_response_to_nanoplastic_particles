@@ -1,0 +1,114 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-19 00:11:32
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260619_001132.txt
+========================================================================
+
+------------------------------------------------------------------------
+  CONFIGURATION
+------------------------------------------------------------------------
+  Project: Single-Cell Analysis of Immune Response to Nanoplastic Particles
+  Integration: combat
+  Raw data: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\data\raw
+  Results: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results
+
+------------------------------------------------------------------------
+  STEP 0 - RAW DATA OVERVIEW
+------------------------------------------------------------------------
+Dataset: PBMC from one donor exposed to polystyrene nanoplastic particles (PSNP) at 40 nm, 200 nm, or a 40+200 nm mix, plus an untreated control. Each file is a filtered 10x gene-cell count matrix stored as AnnData (.h5ad).
+
+Matrix layout: rows = cells (barcodes), columns = genes; values = UMI counts.
+
+  Sample file: filtered_feature_bc_matrix.h5ad
+    Biological condition: PSNP_40nm
+    Dimensions: 8,729 cells x 22,613 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample2.h5ad
+    Biological condition: PSNP_200nm
+    Dimensions: 12,676 cells x 23,206 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample3.h5ad
+    Biological condition: PSNP_mix_40_200
+    Dimensions: 6,157 cells x 21,715 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample4.h5ad
+    Biological condition: control
+    Dimensions: 6,516 cells x 21,961 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+Summary table (all samples):
+                              file       condition  cells  genes total_UMIs  median_genes_per_cell
+        filtered_feature_bc_matrix       PSNP_40nm   8729  22613        n/a                    NaN
+filtered_feature_bc_matrix_Sample2      PSNP_200nm  12676  23206        n/a                    NaN
+filtered_feature_bc_matrix_Sample3 PSNP_mix_40_200   6157  21715        n/a                    NaN
+filtered_feature_bc_matrix_Sample4         control   6516  21961        n/a                    NaN
+
+QC filters (from config): min_genes=200, max_genes=7000, min_counts=500, max_mt%=15. Cells failing these criteria are removed before integration.
+
+------------------------------------------------------------------------
+  STEP 1 - QUALITY CONTROL (per sample)
+------------------------------------------------------------------------
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  Merging filtered_feature_bc_matrix_Sample2 into integrated object (8,458 + 12,421 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample3 into integrated object (20,879 + 6,005 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample4 into integrated object (26,884 + 6,356 cells, inner join on genes)...
+
+------------------------------------------------------------------------
+  STEP 2 - MERGE, INTEGRATION, UMAP, CLUSTERING
+------------------------------------------------------------------------
+  All samples merged: 33,240 cells x 20,388 genes (incremental concat, inner join)
+  Merged object: 33,240 cells x 20,388 genes
+  Normalizing to 10,000 counts per cell and log1p transform...
+  Scoring gene modules on full normalized matrix (before HVG subset)...
+    Cell-cycle: 8 S genes, 8 G2M genes
+    IFN signature: 9 genes
+    Antigen presentation: 8 genes
+  Saving pre-HVG object for ref.Rds mapping tools: data\processed\integrated_pre_hvg.h5ad
+  Selecting top 3000 highly variable genes (HVG, seurat flavor)...
+  Working matrix reduced to 3,000 HVGs
+  Scaling expression (max_value=10)...
+  PCA (30 components)...
+  Batch integration: Combat on sample_id (removes technical batch effects)...
+  Neighbors graph (k=15) and UMAP embedding...
+  Leiden clustering (resolution=0.5)...
+  Found 14 Leiden clusters
+
+------------------------------------------------------------------------
+  STEP 3 - CELL-TYPE ANNOTATION (ref.Rds reference atlas)
+------------------------------------------------------------------------
+  Methods: Seurat, CoDi, Tangram, cell2location | Validation: literature markers
+  Marker source: curated literature panels from config.yaml (validation)
+  Assigning cell types by highest mean marker-gene score per cell...
+  Cell-type counts (literature markers, validation):
+    CD4_T: 15,568
+    NK_cell: 4,064
+    B_cell: 3,986
+    CD8_T_cytotoxic: 3,449
+    Monocyte_CD14: 2,313
+    DC: 2,078
+    Monocyte_CD16: 1,488
+    Platelet: 294
+  [CoDi] Loading labels from *_CoDi_KLD.csv ...
+  CoDi labels mapped to 99.6% of cells
+  Seurat/Azimuth (ref.Rds): mapped 100.0% of cells
+  Exporting ref.Rds to AnnData (R export + Python build)...
+
+------------------------------------------------------------------------
+  PIPELINE FAILED
+------------------------------------------------------------------------
+  Error: [WinError 2] The system cannot find the file specified
+
+========================================================================
+  Finished: 2026-06-19 00:15:38
+========================================================================

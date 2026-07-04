@@ -1,0 +1,50 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:37:07
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_153707.txt
+========================================================================
+
+------------------------------------------------------------------------
+  AZIMUTH MARKER EXTRACTION
+------------------------------------------------------------------------
+  Loading expression: data\processed\integrated_annotated.h5ad
+  Object: 33,240 cells x 3,000 genes
+  Azimuth level=L1, min_score>=0.5: 32,990 / 33,240 cells retained
+  Cell counts by Azimuth label:
+    CD8 T: 13,093
+    CD4 T: 11,551
+    B: 2,625
+    NK: 2,365
+    Mono: 1,759
+    other T: 1,350
+    other: 212
+    DC: 35
+  Running Wilcoxon one-vs-rest marker ranking for 8 cell types...
+  Ranked 24,000 gene x cell-type rows
+  Saved full ranking: results\tables\azimuth_marker_genes_l1.csv
+  Saved marker panels: results\tables\azimuth_marker_panels_l1.csv (80 genes)
+  Saved YAML panels: results\tables\azimuth_marker_panels_l1.yaml
+  Saved comparison to config.yaml markers: results\tables\azimuth_vs_config_markers_l1.csv
+  Saved dot plot: results\figures\azimuth_marker_dotplot_l1.png
+
+------------------------------------------------------------------------
+  TOP MARKERS PER AZIMUTH TYPE (preview)
+------------------------------------------------------------------------
+  B: FRY, SPIRE1, TMC1, FEZ1, CDKN1C, PBX1, RP4-655J12.4, CYP7B1, KIR2DL3, MICALCL
+  CD4 T: PXDN, RP11-231D20.2, RP11-927P21.1, MROH9, FOXD2, RBM20, RP11-203B7.1, LINC00237, ADAMTS1, TLL2
+  CD8 T: RPL8, GPC4, TNFSF15, FAT4, PTPRG, LINC00511, MAPK10, OSGIN1, FBN1, LGALS9C
+  DC: PLEKHG1, FTL, MTHFD1L, GAPDH, RN7SL1, PLA2G16, CROCC, AFF3, CD38, SLAMF1
+  Mono: ME1, RP11-104E19.1, RGMA, GPR85, SMAD6, CXCL13, SYNPO2, AC004053.1, PCOLCE, EDNRA
+  NK: BMP2K, GAB2, IRS2, PAPSS1, MAP3K1, AGPAT9, ACSL4, FANCC, CSF1, RASGRP3
+  other: AP000692.10, TLR3, MYEOV, SLC8A1, LPHN2, RP11-539G18.2, RP11-326K13.4, TGM6, ADCY5, PPP2R2C
+  other T: RPL3, RPL13, SWAP70, RAB31, BMP2K, GNAQ, RIN3, EMILIN2, PGD, ACSL4
+
+------------------------------------------------------------------------
+  DONE
+------------------------------------------------------------------------
+  Use azimuth_marker_panels_*.yaml as data-driven marker dictionary.
+
+========================================================================
+  Finished: 2026-06-15 15:38:39
+========================================================================

@@ -1,0 +1,25 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:09:14
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_150914.txt
+========================================================================
+
+------------------------------------------------------------------------
+  PATHWAY ENRICHMENT FIGURES ONLY
+------------------------------------------------------------------------
+  Added direction=UP to legacy enrichment table
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD16_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_UP.png
+  Pathway enrichment figures: 8 saved under results\figures\pathway_enrichment
+  Done. 8 figure(s) written.
+
+========================================================================
+  Finished: 2026-06-15 15:09:36
+========================================================================

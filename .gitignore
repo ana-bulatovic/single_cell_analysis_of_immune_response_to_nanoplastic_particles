@@ -229,14 +229,6 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 
-# Rezultati analize (tabele, figure)
-results/figures/*
-!results/figures/.gitkeep
-results/tables/*
-!results/tables/.gitkeep
-results/run_logs/*
-!results/run_logs/.gitkeep
-
 # Veliki / binarni formati (ako se pojave van gore navedenih foldera)
 *.h5ad
 *.h5seurat

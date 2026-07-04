@@ -6,6 +6,7 @@ Optional: results/tables/azimuth_annotations.csv (for Azimuth cross-validation)
 
 Usage:
   python scripts/run_additional_analyses.py
+  python scripts/run_additional_analyses.py --refresh-markers   # after config.yaml marker changes
   python scripts/run_additional_analyses.py --no-plots
 """
 
@@ -22,6 +23,8 @@ from run_pipeline import (
     additional_insights,
     load_config,
     load_integrated_adata,
+    marker_based_annotation,
+    resolve_marker_dict,
     setup_paths,
 )
 
@@ -40,6 +43,11 @@ def main() -> None:
         action="store_true",
         help="Skip Serbian interpretation markdown",
     )
+    parser.add_argument(
+        "--refresh-markers",
+        action="store_true",
+        help="Re-assign cell_type_marker from config.yaml and update integrated_annotated.h5ad",
+    )
     args = parser.parse_args()
 
     cfg = load_config()
@@ -53,6 +61,15 @@ def main() -> None:
         log.log("")
 
         adata = load_integrated_adata(paths, log)
+
+        if args.refresh_markers:
+            log.log("  Re-assigning cell_type_marker from config.yaml ...")
+            marker_dict = resolve_marker_dict(cfg, paths, log)
+            marker_based_annotation(adata, marker_dict, log)
+            h5ad_out = paths["processed"] / "integrated_annotated.h5ad"
+            adata.write(h5ad_out)
+            log.log(f"  Updated: {h5ad_out}")
+
         additional_insights(
             adata,
             paths,
@@ -64,6 +81,7 @@ def main() -> None:
         log.section("OUTPUTS")
         log.log("  Tables: results/tables/module_scores_*.csv, annotation_*.csv")
         log.log("  Figures: results/figures/additional_analyses/")
+        log.log("    incl. CoDi vs marker contingency heatmaps")
         log.log("  Interpretation: results/tables/additional_analyses_interpretation_SR.md")
         log.log("")
         log.log("  Done.")

@@ -1,0 +1,15 @@
+2026-06-15 16:11:16 | AZIMUTH ANNOTATION - START
+2026-06-15 16:11:16 | Working directory: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles
+2026-06-15 16:11:16 | Log file: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles/results/run_logs/azimuth_run_20260615_161116.txt
+2026-06-15 16:11:16 | Loading R packages (Seurat, Azimuth)...
+2026-06-15 16:11:49 | Packages loaded.
+2026-06-15 16:11:49 | Loading 10x matrix into Seurat object...
+2026-06-15 16:11:49 | Input: data/processed/azimuth_mtx
+2026-06-15 16:12:08 | Load done in 0.3 min; cells: 33240 features: 3000
+2026-06-15 16:12:08 | Running RunAzimuth with reference: pbmcref
+2026-06-15 16:12:08 | (expect ~15-45 min on a typical laptop for ~33k cells)
+2026-06-15 16:15:43 | RunAzimuth done in 3.6 min
+2026-06-15 16:15:43 | Extracting predictions to CSV: results/tables/azimuth_annotations.csv
+2026-06-15 16:15:44 | Saved 33240 cell rows to results/tables/azimuth_annotations.csv
+2026-06-15 16:15:44 | Mean prediction score: 0.908
+2026-06-15 16:15:44 | AZIMUTH ANNOTATION - COMPLETE (total 3.9 min)

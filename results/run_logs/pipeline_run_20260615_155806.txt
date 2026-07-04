@@ -1,0 +1,11 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:58:06
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_155806.txt
+========================================================================
+
+------------------------------------------------------------------------
+  SIZE-SPECIFIC EFFECTS (standalone)
+------------------------------------------------------------------------
+  Classifying DE genes by particle size (unique 40nm / 200nm / shared / mix-only)...

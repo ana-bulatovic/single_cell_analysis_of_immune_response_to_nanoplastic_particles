@@ -1,0 +1,576 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-19 00:31:32
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260619_003132.txt
+========================================================================
+
+------------------------------------------------------------------------
+  CONFIGURATION
+------------------------------------------------------------------------
+  Project: Single-Cell Analysis of Immune Response to Nanoplastic Particles
+  Integration: combat
+  Raw data: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\data\raw
+  Results: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results
+
+------------------------------------------------------------------------
+  STEP 0 - RAW DATA OVERVIEW
+------------------------------------------------------------------------
+Dataset: PBMC from one donor exposed to polystyrene nanoplastic particles (PSNP) at 40 nm, 200 nm, or a 40+200 nm mix, plus an untreated control. Each file is a filtered 10x gene-cell count matrix stored as AnnData (.h5ad).
+
+Matrix layout: rows = cells (barcodes), columns = genes; values = UMI counts.
+
+  Sample file: filtered_feature_bc_matrix.h5ad
+    Biological condition: PSNP_40nm
+    Dimensions: 8,729 cells x 22,613 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample2.h5ad
+    Biological condition: PSNP_200nm
+    Dimensions: 12,676 cells x 23,206 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample3.h5ad
+    Biological condition: PSNP_mix_40_200
+    Dimensions: 6,157 cells x 21,715 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample4.h5ad
+    Biological condition: control
+    Dimensions: 6,516 cells x 21,961 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+Summary table (all samples):
+                              file       condition  cells  genes total_UMIs  median_genes_per_cell
+        filtered_feature_bc_matrix       PSNP_40nm   8729  22613        n/a                    NaN
+filtered_feature_bc_matrix_Sample2      PSNP_200nm  12676  23206        n/a                    NaN
+filtered_feature_bc_matrix_Sample3 PSNP_mix_40_200   6157  21715        n/a                    NaN
+filtered_feature_bc_matrix_Sample4         control   6516  21961        n/a                    NaN
+
+QC filters (from config): min_genes=200, max_genes=7000, min_counts=500, max_mt%=15. Cells failing these criteria are removed before integration.
+
+------------------------------------------------------------------------
+  STEP 1 - QUALITY CONTROL (per sample)
+------------------------------------------------------------------------
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  Merging filtered_feature_bc_matrix_Sample2 into integrated object (8,458 + 12,421 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample3 into integrated object (20,879 + 6,005 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample4 into integrated object (26,884 + 6,356 cells, inner join on genes)...
+
+------------------------------------------------------------------------
+  STEP 2 - MERGE, INTEGRATION, UMAP, CLUSTERING
+------------------------------------------------------------------------
+  All samples merged: 33,240 cells x 20,388 genes (incremental concat, inner join)
+  Merged object: 33,240 cells x 20,388 genes
+  Normalizing to 10,000 counts per cell and log1p transform...
+  Scoring gene modules on full normalized matrix (before HVG subset)...
+    Cell-cycle: 8 S genes, 8 G2M genes
+    IFN signature: 9 genes
+    Antigen presentation: 8 genes
+  Saving pre-HVG object for ref.Rds mapping tools: data\processed\integrated_pre_hvg.h5ad
+  Selecting top 3000 highly variable genes (HVG, seurat flavor)...
+  Working matrix reduced to 3,000 HVGs
+  Scaling expression (max_value=10)...
+  PCA (30 components)...
+  Batch integration: Combat on sample_id (removes technical batch effects)...
+  Neighbors graph (k=15) and UMAP embedding...
+  Leiden clustering (resolution=0.5)...
+  Found 14 Leiden clusters
+
+------------------------------------------------------------------------
+  STEP 3 - CELL-TYPE ANNOTATION (ref.Rds reference atlas)
+------------------------------------------------------------------------
+  Methods: Seurat, CoDi, Tangram, cell2location | Validation: literature markers
+  Marker source: curated literature panels from config.yaml (validation)
+  Assigning cell types by highest mean marker-gene score per cell...
+  Cell-type counts (literature markers, validation):
+    CD4_T: 15,568
+    NK_cell: 4,064
+    B_cell: 3,986
+    CD8_T_cytotoxic: 3,449
+    Monocyte_CD14: 2,313
+    DC: 2,078
+    Monocyte_CD16: 1,488
+    Platelet: 294
+  [CoDi] Loading labels from *_CoDi_KLD.csv ...
+  CoDi labels mapped to 99.6% of cells
+  Seurat/Azimuth (ref.Rds): mapped 100.0% of cells
+  Tangram/cell2location disabled in config — skip Python ref mapping
+  Primary annotation for DE/composition: seurat (cell_type_seurat)
+  Validating annotations with literature marker dotplots...
+  Saved: results\figures\annotation_validation\marker_validation_literature_markers.png
+  Saved: results\figures\annotation_validation\marker_validation_seurat_ref_rds.png
+  Saved: results\figures\annotation_validation\marker_validation_codi.png
+  Saved: annotation_method_agreement.csv (5 metrics)
+  Crosstabs saved for: seurat, codi
+
+------------------------------------------------------------------------
+  STEP 4 - CORE UMAP FIGURES
+------------------------------------------------------------------------
+  Saved: results\figures\umap_condition.png
+  Saved: results\figures\umap_clusters.png
+  Saved: results\figures\umap_celltypes_marker.png
+  Saved: results\figures\umap_celltypes_seurat.png
+  Saved: results\figures\umap_split_by_condition.png
+  Saved: results\figures\umap_sample_integration.png
+  Saved: results\figures\umap_module_scores.png
+  Saved: results\figures\umap_codi_celltypes.png
+  Saved: results\figures\marker_dotplot.png
+
+------------------------------------------------------------------------
+  STEP 5 - CELL COMPOSITION
+------------------------------------------------------------------------
+  Comparing immune cell proportions across PSNP conditions vs control...
+  Saved table: results\tables\cell_composition_by_condition.csv
+  Saved figure: results\figures\composition_barplot.png
+
+------------------------------------------------------------------------
+  STEP 6 - DIFFERENTIAL EXPRESSION
+------------------------------------------------------------------------
+  Wilcoxon test per cell type; min 20 cells per group...
+  DE done: B_cell - PSNP_40nm vs control (n_test=540, n_ctrl=583)
+  DE done: B_cell - PSNP_200nm vs control (n_test=891, n_ctrl=583)
+  DE done: B_cell - PSNP_mix_40_200 vs control (n_test=611, n_ctrl=583)
+  DE done: CD4_T - PSNP_40nm vs control (n_test=3251, n_ctrl=2061)
+  DE done: CD4_T - PSNP_200nm vs control (n_test=4337, n_ctrl=2061)
+  DE done: CD4_T - PSNP_mix_40_200 vs control (n_test=1902, n_ctrl=2061)
+  DE done: CD8_T_cytotoxic - PSNP_40nm vs control (n_test=3451, n_ctrl=2609)
+  DE done: CD8_T_cytotoxic - PSNP_200nm vs control (n_test=4661, n_ctrl=2609)
+  DE done: CD8_T_cytotoxic - PSNP_mix_40_200 vs control (n_test=2372, n_ctrl=2609)
+  DE done: Monocyte_CD14 - PSNP_40nm vs control (n_test=246, n_ctrl=203)
+  DE done: Monocyte_CD14 - PSNP_200nm vs control (n_test=1018, n_ctrl=203)
+  DE done: Monocyte_CD14 - PSNP_mix_40_200 vs control (n_test=292, n_ctrl=203)
+  DE done: NK_cell - PSNP_40nm vs control (n_test=562, n_ctrl=533)
+  DE done: NK_cell - PSNP_200nm vs control (n_test=813, n_ctrl=533)
+  DE done: NK_cell - PSNP_mix_40_200 vs control (n_test=457, n_ctrl=533)
+  DE done: other - PSNP_40nm vs control (n_test=39, n_ctrl=31)
+  DE done: other - PSNP_200nm vs control (n_test=74, n_ctrl=31)
+  DE done: other - PSNP_mix_40_200 vs control (n_test=68, n_ctrl=31)
+  DE done: other_T - PSNP_40nm vs control (n_test=287, n_ctrl=286)
+  DE done: other_T - PSNP_200nm vs control (n_test=507, n_ctrl=286)
+  DE done: other_T - PSNP_mix_40_200 vs control (n_test=270, n_ctrl=286)
+  Ran 21 comparisons; saved 63,000 gene rows to results\tables\differential_expression_all.csv
+  Significant hits (padj<0.05, |logFC|>0.25): 33,019
+
+------------------------------------------------------------------------
+  STEP 7 - PATHWAY ENRICHMENT
+------------------------------------------------------------------------
+  Running Enrichr (GO, KEGG, Reactome) on significant UP, DOWN DE genes per cell type x comparison...
+    UP: B_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (885 input genes)
+    UP: B_cell / PSNP_200nm_vs_control / KEGG_2021_Human (885 input genes)
+    UP: B_cell / PSNP_200nm_vs_control / Reactome_2022 (885 input genes)
+    UP: B_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (750 input genes)
+    UP: B_cell / PSNP_40nm_vs_control / KEGG_2021_Human (750 input genes)
+    UP: B_cell / PSNP_40nm_vs_control / Reactome_2022 (750 input genes)
+    UP: B_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (903 input genes)
+    UP: B_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (903 input genes)
+    UP: B_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (903 input genes)
+    UP: CD4_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1015 input genes)
+    UP: CD4_T / PSNP_200nm_vs_control / KEGG_2021_Human (1015 input genes)
+    UP: CD4_T / PSNP_200nm_vs_control / Reactome_2022 (1015 input genes)
+    UP: CD4_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (381 input genes)
+    UP: CD4_T / PSNP_40nm_vs_control / KEGG_2021_Human (381 input genes)
+    UP: CD4_T / PSNP_40nm_vs_control / Reactome_2022 (381 input genes)
+    UP: CD4_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (903 input genes)
+    UP: CD4_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (903 input genes)
+    UP: CD4_T / PSNP_mix_40_200_vs_control / Reactome_2022 (903 input genes)
+    UP: CD8_T_cytotoxic / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1164 input genes)
+    UP: CD8_T_cytotoxic / PSNP_200nm_vs_control / KEGG_2021_Human (1164 input genes)
+    UP: CD8_T_cytotoxic / PSNP_200nm_vs_control / Reactome_2022 (1164 input genes)
+    UP: CD8_T_cytotoxic / PSNP_40nm_vs_control / GO_Biological_Process_2023 (402 input genes)
+    UP: CD8_T_cytotoxic / PSNP_40nm_vs_control / KEGG_2021_Human (402 input genes)
+    UP: CD8_T_cytotoxic / PSNP_40nm_vs_control / Reactome_2022 (402 input genes)
+    UP: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (952 input genes)
+    UP: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / KEGG_2021_Human (952 input genes)
+    UP: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / Reactome_2022 (952 input genes)
+    UP: Monocyte_CD14 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (506 input genes)
+    UP: Monocyte_CD14 / PSNP_200nm_vs_control / KEGG_2021_Human (506 input genes)
+    UP: Monocyte_CD14 / PSNP_200nm_vs_control / Reactome_2022 (506 input genes)
+    UP: Monocyte_CD14 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1337 input genes)
+    UP: Monocyte_CD14 / PSNP_40nm_vs_control / KEGG_2021_Human (1337 input genes)
+    UP: Monocyte_CD14 / PSNP_40nm_vs_control / Reactome_2022 (1337 input genes)
+    UP: Monocyte_CD14 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1433 input genes)
+    UP: Monocyte_CD14 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1433 input genes)
+    UP: Monocyte_CD14 / PSNP_mix_40_200_vs_control / Reactome_2022 (1433 input genes)
+    UP: NK_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (903 input genes)
+    UP: NK_cell / PSNP_200nm_vs_control / KEGG_2021_Human (903 input genes)
+    UP: NK_cell / PSNP_200nm_vs_control / Reactome_2022 (903 input genes)
+    UP: NK_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (774 input genes)
+    UP: NK_cell / PSNP_40nm_vs_control / KEGG_2021_Human (774 input genes)
+    UP: NK_cell / PSNP_40nm_vs_control / Reactome_2022 (774 input genes)
+    UP: NK_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1066 input genes)
+    UP: NK_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1066 input genes)
+    UP: NK_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (1066 input genes)
+    UP: other / PSNP_200nm_vs_control / GO_Biological_Process_2023 (613 input genes)
+    UP: other / PSNP_200nm_vs_control / KEGG_2021_Human (613 input genes)
+    UP: other / PSNP_200nm_vs_control / Reactome_2022 (613 input genes)
+    UP: other / PSNP_40nm_vs_control / GO_Biological_Process_2023 (588 input genes)
+    UP: other / PSNP_40nm_vs_control / KEGG_2021_Human (588 input genes)
+    UP: other / PSNP_40nm_vs_control / Reactome_2022 (588 input genes)
+    UP: other / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (742 input genes)
+    UP: other / PSNP_mix_40_200_vs_control / KEGG_2021_Human (742 input genes)
+    UP: other / PSNP_mix_40_200_vs_control / Reactome_2022 (742 input genes)
+    UP: other_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (975 input genes)
+    UP: other_T / PSNP_200nm_vs_control / KEGG_2021_Human (975 input genes)
+    UP: other_T / PSNP_200nm_vs_control / Reactome_2022 (975 input genes)
+    UP: other_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (568 input genes)
+    UP: other_T / PSNP_40nm_vs_control / KEGG_2021_Human (568 input genes)
+    UP: other_T / PSNP_40nm_vs_control / Reactome_2022 (568 input genes)
+    UP: other_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (951 input genes)
+    UP: other_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (951 input genes)
+    UP: other_T / PSNP_mix_40_200_vs_control / Reactome_2022 (951 input genes)
+    DOWN: B_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (887 input genes)
+    DOWN: B_cell / PSNP_200nm_vs_control / KEGG_2021_Human (887 input genes)
+    DOWN: B_cell / PSNP_200nm_vs_control / Reactome_2022 (887 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (833 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / KEGG_2021_Human (833 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / Reactome_2022 (833 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (692 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (692 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (692 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (641 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / KEGG_2021_Human (641 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / Reactome_2022 (641 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1324 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / KEGG_2021_Human (1324 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / Reactome_2022 (1324 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (558 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (558 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / Reactome_2022 (558 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / GO_Biological_Process_2023 (572 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / KEGG_2021_Human (572 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / Reactome_2022 (572 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1256 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / KEGG_2021_Human (1256 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / Reactome_2022 (1256 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (559 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / KEGG_2021_Human (559 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / Reactome_2022 (559 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1345 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / KEGG_2021_Human (1345 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / Reactome_2022 (1345 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (479 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / KEGG_2021_Human (479 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / Reactome_2022 (479 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (474 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (474 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / Reactome_2022 (474 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (855 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / KEGG_2021_Human (855 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / Reactome_2022 (855 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (801 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / KEGG_2021_Human (801 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / Reactome_2022 (801 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (556 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (556 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (556 input genes)
+    DOWN: other / PSNP_200nm_vs_control / GO_Biological_Process_2023 (739 input genes)
+    DOWN: other / PSNP_200nm_vs_control / KEGG_2021_Human (739 input genes)
+    DOWN: other / PSNP_200nm_vs_control / Reactome_2022 (739 input genes)
+    DOWN: other / PSNP_40nm_vs_control / GO_Biological_Process_2023 (267 input genes)
+    DOWN: other / PSNP_40nm_vs_control / KEGG_2021_Human (267 input genes)
+    DOWN: other / PSNP_40nm_vs_control / Reactome_2022 (267 input genes)
+    DOWN: other / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (461 input genes)
+    DOWN: other / PSNP_mix_40_200_vs_control / KEGG_2021_Human (461 input genes)
+    DOWN: other / PSNP_mix_40_200_vs_control / Reactome_2022 (461 input genes)
+    DOWN: other_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (797 input genes)
+    DOWN: other_T / PSNP_200nm_vs_control / KEGG_2021_Human (797 input genes)
+    DOWN: other_T / PSNP_200nm_vs_control / Reactome_2022 (797 input genes)
+    DOWN: other_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (609 input genes)
+    DOWN: other_T / PSNP_40nm_vs_control / KEGG_2021_Human (609 input genes)
+    DOWN: other_T / PSNP_40nm_vs_control / Reactome_2022 (609 input genes)
+    DOWN: other_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (503 input genes)
+    DOWN: other_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (503 input genes)
+    DOWN: other_T / PSNP_mix_40_200_vs_control / Reactome_2022 (503 input genes)
+  Saved: results\tables\pathway_enrichment_all.csv (166,064 rows)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_T_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_T_UP.png (3 exposure columns)
+  Pathway enrichment figures: 14 saved under results\figures\pathway_enrichment
+
+------------------------------------------------------------------------
+  STEP 8 - SIZE-SPECIFIC EFFECTS
+------------------------------------------------------------------------
+  Classifying DE genes by particle size (unique 40nm / 200nm / shared / mix-only)...
+    B_cell: unique_40nm=233, unique_200nm=296, shared_40_200=385, shared_all_three=689, mix_only_emergent=228
+    CD4_T: unique_40nm=316, unique_200nm=244, shared_40_200=511, shared_all_three=582, mix_only_emergent=264
+    CD8_T_cytotoxic: unique_40nm=309, unique_200nm=244, shared_40_200=537, shared_all_three=526, mix_only_emergent=270
+    Monocyte_CD14: unique_40nm=196, unique_200nm=157, shared_40_200=334, shared_all_three=973, mix_only_emergent=234
+    NK_cell: unique_40nm=208, unique_200nm=272, shared_40_200=391, shared_all_three=672, mix_only_emergent=223
+    other: unique_40nm=184, unique_200nm=368, shared_40_200=262, shared_all_three=215, mix_only_emergent=287
+    other_T: unique_40nm=196, unique_200nm=393, shared_40_200=402, shared_all_three=383, mix_only_emergent=281
+  Saved: results\tables\size_specific_effects_summary.csv
+  Saved: results\tables\size_specific_genes.csv (12,265 gene rows)
+  Running Enrichr on UP-regulated genes per size-effect class (min 10 genes)...
+    UP: B_cell/mix_only_emergent / GO_Biological_Process_2023 (119 genes)
+    UP: B_cell/mix_only_emergent / KEGG_2021_Human (119 genes)
+    UP: B_cell/mix_only_emergent / Reactome_2022 (119 genes)
+    UP: B_cell/shared_40_200 / GO_Biological_Process_2023 (220 genes)
+    UP: B_cell/shared_40_200 / KEGG_2021_Human (220 genes)
+    UP: B_cell/shared_40_200 / Reactome_2022 (220 genes)
+    UP: B_cell/shared_all_three / GO_Biological_Process_2023 (363 genes)
+    UP: B_cell/shared_all_three / KEGG_2021_Human (363 genes)
+    UP: B_cell/shared_all_three / Reactome_2022 (363 genes)
+    UP: B_cell/unique_200nm / GO_Biological_Process_2023 (106 genes)
+    UP: B_cell/unique_200nm / KEGG_2021_Human (106 genes)
+    UP: B_cell/unique_200nm / Reactome_2022 (106 genes)
+    UP: B_cell/unique_40nm / GO_Biological_Process_2023 (95 genes)
+    UP: B_cell/unique_40nm / KEGG_2021_Human (95 genes)
+    UP: B_cell/unique_40nm / Reactome_2022 (95 genes)
+    UP: CD4_T/mix_only_emergent / GO_Biological_Process_2023 (148 genes)
+    UP: CD4_T/mix_only_emergent / KEGG_2021_Human (148 genes)
+    UP: CD4_T/mix_only_emergent / Reactome_2022 (148 genes)
+    UP: CD4_T/shared_40_200 / GO_Biological_Process_2023 (412 genes)
+    UP: CD4_T/shared_40_200 / KEGG_2021_Human (412 genes)
+    UP: CD4_T/shared_40_200 / Reactome_2022 (412 genes)
+    UP: CD4_T/shared_all_three / GO_Biological_Process_2023 (335 genes)
+    UP: CD4_T/shared_all_three / KEGG_2021_Human (335 genes)
+    UP: CD4_T/shared_all_three / Reactome_2022 (335 genes)
+    UP: CD4_T/unique_200nm / GO_Biological_Process_2023 (116 genes)
+    UP: CD4_T/unique_200nm / KEGG_2021_Human (116 genes)
+    UP: CD4_T/unique_200nm / Reactome_2022 (116 genes)
+    UP: CD4_T/unique_40nm / GO_Biological_Process_2023 (55 genes)
+    UP: CD4_T/unique_40nm / KEGG_2021_Human (55 genes)
+    UP: CD4_T/unique_40nm / Reactome_2022 (55 genes)
+    UP: CD8_T_cytotoxic/mix_only_emergent / GO_Biological_Process_2023 (170 genes)
+    UP: CD8_T_cytotoxic/mix_only_emergent / KEGG_2021_Human (170 genes)
+    UP: CD8_T_cytotoxic/mix_only_emergent / Reactome_2022 (170 genes)
+    UP: CD8_T_cytotoxic/shared_40_200 / GO_Biological_Process_2023 (464 genes)
+    UP: CD8_T_cytotoxic/shared_40_200 / KEGG_2021_Human (464 genes)
+    UP: CD8_T_cytotoxic/shared_40_200 / Reactome_2022 (464 genes)
+    UP: CD8_T_cytotoxic/shared_all_three / GO_Biological_Process_2023 (294 genes)
+    UP: CD8_T_cytotoxic/shared_all_three / KEGG_2021_Human (294 genes)
+    UP: CD8_T_cytotoxic/shared_all_three / Reactome_2022 (294 genes)
+    UP: CD8_T_cytotoxic/unique_200nm / GO_Biological_Process_2023 (151 genes)
+    UP: CD8_T_cytotoxic/unique_200nm / KEGG_2021_Human (151 genes)
+    UP: CD8_T_cytotoxic/unique_200nm / Reactome_2022 (151 genes)
+    UP: CD8_T_cytotoxic/unique_40nm / GO_Biological_Process_2023 (63 genes)
+    UP: CD8_T_cytotoxic/unique_40nm / KEGG_2021_Human (63 genes)
+    UP: CD8_T_cytotoxic/unique_40nm / Reactome_2022 (63 genes)
+    UP: Monocyte_CD14/mix_only_emergent / GO_Biological_Process_2023 (176 genes)
+    UP: Monocyte_CD14/mix_only_emergent / KEGG_2021_Human (176 genes)
+    UP: Monocyte_CD14/mix_only_emergent / Reactome_2022 (176 genes)
+    UP: Monocyte_CD14/shared_40_200 / GO_Biological_Process_2023 (123 genes)
+    UP: Monocyte_CD14/shared_40_200 / KEGG_2021_Human (123 genes)
+    UP: Monocyte_CD14/shared_40_200 / Reactome_2022 (123 genes)
+    UP: Monocyte_CD14/shared_all_three / GO_Biological_Process_2023 (732 genes)
+    UP: Monocyte_CD14/shared_all_three / KEGG_2021_Human (732 genes)
+    UP: Monocyte_CD14/shared_all_three / Reactome_2022 (732 genes)
+    UP: Monocyte_CD14/unique_200nm / GO_Biological_Process_2023 (68 genes)
+    UP: Monocyte_CD14/unique_200nm / KEGG_2021_Human (68 genes)
+    UP: Monocyte_CD14/unique_200nm / Reactome_2022 (68 genes)
+    UP: Monocyte_CD14/unique_40nm / GO_Biological_Process_2023 (131 genes)
+    UP: Monocyte_CD14/unique_40nm / KEGG_2021_Human (131 genes)
+    UP: Monocyte_CD14/unique_40nm / Reactome_2022 (131 genes)
+    UP: NK_cell/mix_only_emergent / GO_Biological_Process_2023 (138 genes)
+    UP: NK_cell/mix_only_emergent / KEGG_2021_Human (138 genes)
+    UP: NK_cell/mix_only_emergent / Reactome_2022 (138 genes)
+    UP: NK_cell/shared_40_200 / GO_Biological_Process_2023 (258 genes)
+    UP: NK_cell/shared_40_200 / KEGG_2021_Human (258 genes)
+    UP: NK_cell/shared_40_200 / Reactome_2022 (258 genes)
+    UP: NK_cell/shared_all_three / GO_Biological_Process_2023 (429 genes)
+    UP: NK_cell/shared_all_three / KEGG_2021_Human (429 genes)
+    UP: NK_cell/shared_all_three / Reactome_2022 (429 genes)
+    UP: NK_cell/unique_200nm / GO_Biological_Process_2023 (128 genes)
+    UP: NK_cell/unique_200nm / KEGG_2021_Human (128 genes)
+    UP: NK_cell/unique_200nm / Reactome_2022 (128 genes)
+    UP: NK_cell/unique_40nm / GO_Biological_Process_2023 (90 genes)
+    UP: NK_cell/unique_40nm / KEGG_2021_Human (90 genes)
+    UP: NK_cell/unique_40nm / Reactome_2022 (90 genes)
+    UP: other/mix_only_emergent / GO_Biological_Process_2023 (200 genes)
+    UP: other/mix_only_emergent / KEGG_2021_Human (200 genes)
+    UP: other/mix_only_emergent / Reactome_2022 (200 genes)
+    UP: other/shared_40_200 / GO_Biological_Process_2023 (140 genes)
+    UP: other/shared_40_200 / KEGG_2021_Human (140 genes)
+    UP: other/shared_40_200 / Reactome_2022 (140 genes)
+    UP: other/shared_all_three / GO_Biological_Process_2023 (98 genes)
+    UP: other/shared_all_three / KEGG_2021_Human (98 genes)
+    UP: other/shared_all_three / Reactome_2022 (98 genes)
+    UP: other/unique_200nm / GO_Biological_Process_2023 (190 genes)
+    UP: other/unique_200nm / KEGG_2021_Human (190 genes)
+    UP: other/unique_200nm / Reactome_2022 (190 genes)
+    UP: other/unique_40nm / GO_Biological_Process_2023 (140 genes)
+    UP: other/unique_40nm / KEGG_2021_Human (140 genes)
+    UP: other/unique_40nm / Reactome_2022 (140 genes)
+    UP: other_T/mix_only_emergent / GO_Biological_Process_2023 (187 genes)
+    UP: other_T/mix_only_emergent / KEGG_2021_Human (187 genes)
+    UP: other_T/mix_only_emergent / Reactome_2022 (187 genes)
+    UP: other_T/shared_40_200 / GO_Biological_Process_2023 (288 genes)
+    UP: other_T/shared_40_200 / KEGG_2021_Human (288 genes)
+    UP: other_T/shared_40_200 / Reactome_2022 (288 genes)
+    UP: other_T/shared_all_three / GO_Biological_Process_2023 (233 genes)
+    UP: other_T/shared_all_three / KEGG_2021_Human (233 genes)
+    UP: other_T/shared_all_three / Reactome_2022 (233 genes)
+    UP: other_T/unique_200nm / GO_Biological_Process_2023 (237 genes)
+    UP: other_T/unique_200nm / KEGG_2021_Human (237 genes)
+    UP: other_T/unique_200nm / Reactome_2022 (237 genes)
+    UP: other_T/unique_40nm / GO_Biological_Process_2023 (86 genes)
+    UP: other_T/unique_40nm / KEGG_2021_Human (86 genes)
+    UP: other_T/unique_40nm / Reactome_2022 (86 genes)
+  Saved: results\tables\size_specific_pathway_enrichment.csv (64,857 rows)
+  Saved: results\tables\size_specific_interpretation.csv (35 rows)
+
+------------------------------------------------------------------------
+  STEP 9 - ADDITIONAL ANALYSES
+------------------------------------------------------------------------
+  Seurat/Azimuth (ref.Rds): mapped 100.0% of cells
+  [1/6] Module scores by condition (global means)...
+  Saved: module_scores_by_condition.csv
+  [2/6] Module scores by condition x cell type...
+  Saved: module_scores_by_condition_celltype.csv, antigen_presentation_scores.csv
+  [3/6] Pseudobulk counts (sum UMIs per condition x cell type)...
+  Saved: results\tables\pseudobulk_counts_condition_celltype.csv (36 groups)
+  [4/6] Annotation cross-validation (ref.Rds / literature markers / CoDi)...
+  Saved: annotation_crosstab_marker_azimuth.csv
+  Saved: annotation_crosstab_ref_marker.csv
+  Saved: annotation_crosstab_marker_codi.csv
+  Saved: annotation_agreement_metrics.csv (8 metrics)
+    ref_marker_agreement: 0.472
+    codi_marker_agreement: 0.654
+    codi_ref_agreement: 0.599
+    codi_mapped_fraction: 0.990
+    azimuth_marker_agreement: 0.473
+    azimuth_marker_agreement_score_ge_0.5: 0.475
+    codi_azimuth_agreement: 0.600
+    azimuth_mean_score: 0.908
+  [5/6] Writing interpretation report (SR)...
+  Saved: results\tables\additional_analyses_interpretation_SR.md
+  [6/6] Plotting additional analysis figures...
+  Saved 5 figure(s) under results\figures\additional_analyses
+
+------------------------------------------------------------------------
+  STEP 10 - SAVE PROCESSED OBJECT
+------------------------------------------------------------------------
+  Saved integrated AnnData: data\processed\integrated_annotated.h5ad
+  Final object: 33,240 cells x 3,000 genes (HVG space)
+
+------------------------------------------------------------------------
+  OUTPUT FILES - TABLES
+------------------------------------------------------------------------
+  annotation_agreement_metrics.csv
+  annotation_crosstab_marker_azimuth.csv
+  annotation_crosstab_marker_codi.csv
+  annotation_crosstab_marker_seurat.csv
+  annotation_crosstab_ref_marker.csv
+  annotation_method_agreement.csv
+  antigen_presentation_scores.csv
+  azimuth_annotations.csv
+  azimuth_marker_genes_l1.csv
+  azimuth_marker_panels_l1.csv
+  azimuth_vs_config_markers_l1.csv
+  cell_composition_by_condition.csv
+  cell_cycle_scores_by_condition.csv
+  differential_expression_all.csv
+  ifn_scores_by_condition.csv
+  module_scores_by_condition.csv
+  module_scores_by_condition_celltype.csv
+  pathway_enrichment_all.csv
+  pseudobulk_counts_condition_celltype.csv
+  size_specific_effects_summary.csv
+  size_specific_genes.csv
+  size_specific_interpretation.csv
+  size_specific_pathway_enrichment.csv
+
+------------------------------------------------------------------------
+  OUTPUT FILES - FIGURES
+------------------------------------------------------------------------
+  azimuth_marker_dotplot_l1.png
+  composition_barplot.png
+  marker_dotplot.png
+  umap_celltypes_marker.png
+  umap_celltypes_seurat.png
+  umap_clusters.png
+  umap_codi_celltypes.png
+  umap_condition.png
+  umap_module_scores.png
+  umap_sample_integration.png
+  umap_split_by_condition.png
+
+------------------------------------------------------------------------
+  FIGURE GUIDE (for slides)
+------------------------------------------------------------------------
+Use these captions when building your PowerPoint:
+
+  umap_condition.png
+    UMAP of all integrated cells colored by experimental condition (40 nm PSNP, 200 nm PSNP, mixed PSNP, or untreated control). Shows whether samples mix after batch correction and if exposure drives visible transcriptional shifts.
+
+  umap_clusters.png
+    UMAP colored by Leiden clusters (unsupervised groups). Each cluster is a group of cells with similar expression profiles; clusters are later linked to cell types via marker genes.
+
+  umap_celltypes_marker.png
+    UMAP colored by marker-based PBMC cell types (T, B, NK, monocytes, etc.). Assignment uses canonical marker gene sets from config.yaml.
+
+  umap_split_by_condition.png
+    Same UMAP embedding split into four panels (one per condition). Highlights each exposure against a gray background of all other cells — useful to compare whether any condition occupies distinct regions.
+
+  umap_sample_integration.png
+    UMAP colored by sample_id after Combat batch correction. Good integration means all four samples intermix rather than forming separate islands.
+
+  umap_module_scores.png
+    UMAP colored by cell-cycle (S, G2M) and interferon module scores. Shows spatial distribution of proliferation and innate immune activation signals.
+
+  umap_codi_celltypes.png
+    UMAP colored by external CoDi reference labels (when available). Independent validation of marker-based annotation.
+
+  marker_dotplot.png
+    Dot plot of canonical marker genes per assigned cell type. Validates that marker-based labels match expected PBMC expression patterns.
+
+  composition_barplot.png
+    Stacked bar chart of cell-type fractions per condition. Answers whether nanoplastic exposure changes immune cell proportions (e.g. more monocytes, fewer T cells) relative to control.
+
+
+------------------------------------------------------------------------
+  TABLE GUIDE (for slides)
+------------------------------------------------------------------------
+  cell_composition_by_condition.csv: Cell counts and fractions per condition and marker-based cell type.
+  differential_expression_all.csv: Wilcoxon DE results: each exposure vs control, stratified by cell type.
+  pathway_enrichment_all.csv: Enrichr hits (GO/KEGG/Reactome) for significant UP and DOWN DE genes; includes direction column. Figures in results/figures/pathway_enrichment/.
+  size_specific_effects_summary.csv: Counts of DE genes unique to 40 nm, 200 nm, shared, or mix-only effects.
+  size_specific_genes.csv: Gene lists per cell type and size-effect class with logFC from the primary comparison.
+  size_specific_pathway_enrichment.csv: Enrichr hits (GO/KEGG/Reactome) for UP genes in each size-effect class.
+  size_specific_interpretation.csv: Top genes, top pathways, and short biological notes per size-effect class.
+  cell_cycle_scores_by_condition.csv: Mean S and G2M phase scores per condition (subset of module_scores_by_condition).
+  ifn_scores_by_condition.csv: Mean interferon module score per condition.
+  module_scores_by_condition.csv: All module scores (S, G2M, IFN, antigen presentation) averaged per condition.
+  module_scores_by_condition_celltype.csv: Module scores per condition and marker-based cell type.
+  antigen_presentation_scores.csv: Mean HLA/MHC module score by condition and cell type.
+  pseudobulk_counts_condition_celltype.csv: Summed UMI counts per condition x cell type for bulk-style follow-up.
+  annotation_agreement_metrics.csv: CoDi/marker/Azimuth agreement fractions and mean Azimuth score.
+  annotation_crosstab_marker_codi.csv: Cell counts: marker-based type vs normalized CoDi label.
+  annotation_crosstab_marker_azimuth.csv: Cell counts: marker-based type vs Azimuth L1 label.
+  additional_analyses_interpretation_SR.md: Serbian interpretation of additional analyses tables and figures.
+
+------------------------------------------------------------------------
+  PIPELINE COMPLETE
+------------------------------------------------------------------------
+  All steps finished successfully.
+  Full run log copied to: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260619_003132.txt
+  ref.Rds annotation workflow:
+    1) python scripts/download_data.py          # ref.Rds + idx.annoy
+    2) python scripts/run_pipeline.py           # creates integrated_pre_hvg.h5ad
+    3) python scripts/prepare_azimuth_h5ad.py
+    4) Rscript scripts/azimuth_annotation.R    # Seurat + ref.Rds
+    5) python scripts/run_reference_annotation.py  # Tangram + cell2location
+    6) python scripts/run_pipeline.py           # full analysis with all labels
+
+========================================================================
+  Finished: 2026-06-19 00:46:03
+========================================================================

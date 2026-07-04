@@ -1,0 +1,71 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-07-04 01:56:38
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260704_015638.txt
+========================================================================
+
+------------------------------------------------------------------------
+  ADDITIONAL ANALYSES (standalone)
+------------------------------------------------------------------------
+  Analyses: module scores, pseudobulk, CoDi/Azimuth validation
+  Input: data/processed/integrated_annotated.h5ad
+
+  Loading data\processed\integrated_annotated.h5ad ...
+  Loaded 33,240 cells x 3,000 genes
+  Re-assigning cell_type_marker from config.yaml ...
+  Marker source: curated literature panels from config.yaml (validation)
+  Assigning cell types by highest mean marker-gene score per cell...
+  Cell-type counts (literature markers, validation):
+    CD4_T: 14,745
+    NK_cell: 4,120
+    B_cell: 3,793
+    CD8_T_cytotoxic: 3,615
+    Monocyte_CD16: 2,401
+    Monocyte_CD14: 2,096
+    Platelet: 1,684
+    DC: 786
+  Updated: data\processed\integrated_annotated.h5ad
+  Seurat/Azimuth (ref.Rds): mapped 100.0% of cells
+  [1/6] Module scores by condition (global means)...
+  Saved: module_scores_by_condition.csv
+  [2/6] Module scores by condition x cell type...
+  Saved: module_scores_by_condition_celltype.csv, antigen_presentation_scores.csv
+  [3/6] Pseudobulk counts (sum UMIs per condition x cell type)...
+  Saved: results\tables\pseudobulk_counts_condition_celltype.csv (36 groups)
+  [4/6] Annotation cross-validation (ref.Rds / literature markers / CoDi)...
+  Saved: annotation_crosstab_marker_azimuth.csv
+  Saved: annotation_crosstab_ref_marker.csv
+  Saved: annotation_crosstab_marker_codi.csv
+  Saved: annotation_crosstab_marker_codi_row_pct.csv
+  Saved: annotation_codi_marker_mapping.csv (44 pairs)
+  Saved: annotation_crosstab_ref_codi.csv
+  Saved: annotation_crosstab_ref_codi_row_pct.csv
+  Saved: annotation_codi_ref_mapping.csv (37 pairs)
+  Saved: annotation_agreement_metrics.csv (8 metrics)
+    ref_marker_agreement: 0.454
+    codi_marker_agreement: 0.630
+    codi_ref_agreement: 0.599
+    codi_mapped_fraction: 0.990
+    azimuth_marker_agreement: 0.456
+    azimuth_marker_agreement_score_ge_0.5: 0.458
+    codi_azimuth_agreement: 0.600
+    azimuth_mean_score: 0.908
+  [5/6] Writing interpretation report (SR)...
+  Saved: results\tables\additional_analyses_interpretation_SR.md
+  [6/6] Plotting additional analysis figures...
+  Saved 9 figure(s) under results\figures\additional_analyses
+
+------------------------------------------------------------------------
+  OUTPUTS
+------------------------------------------------------------------------
+  Tables: results/tables/module_scores_*.csv, annotation_*.csv
+  Figures: results/figures/additional_analyses/
+    incl. CoDi vs marker contingency heatmaps
+  Interpretation: results/tables/additional_analyses_interpretation_SR.md
+
+  Done.
+
+========================================================================
+  Finished: 2026-07-04 01:56:54
+========================================================================

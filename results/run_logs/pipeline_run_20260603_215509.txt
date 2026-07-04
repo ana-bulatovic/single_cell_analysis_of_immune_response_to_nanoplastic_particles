@@ -1,0 +1,169 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-03 21:55:09
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260603_215509.txt
+========================================================================
+
+------------------------------------------------------------------------
+  CONFIGURATION
+------------------------------------------------------------------------
+  Project: Single-Cell Analysis of Immune Response to Nanoplastic Particles
+  Integration: combat
+  Raw data: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\data\raw
+  Results: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results
+
+------------------------------------------------------------------------
+  STEP 0 - RAW DATA OVERVIEW
+------------------------------------------------------------------------
+Dataset: PBMC from one donor exposed to polystyrene nanoplastic particles (PSNP) at 40 nm, 200 nm, or a 40+200 nm mix, plus an untreated control. Each file is a filtered 10x gene-cell count matrix stored as AnnData (.h5ad).
+
+Matrix layout: rows = cells (barcodes), columns = genes; values = UMI counts.
+
+  Sample file: filtered_feature_bc_matrix.h5ad
+    Biological condition: PSNP_40nm
+    Dimensions: 8,729 cells x 22,613 genes
+    Total UMIs (mapped reads): 5,384,381
+    Median detected genes per cell: 2022
+
+  Sample file: filtered_feature_bc_matrix_Sample2.h5ad
+    Biological condition: PSNP_200nm
+    Dimensions: 12,676 cells x 23,206 genes
+    Total UMIs (mapped reads): 7,853,848
+    Median detected genes per cell: 1799
+
+  Sample file: filtered_feature_bc_matrix_Sample3.h5ad
+    Biological condition: PSNP_mix_40_200
+    Dimensions: 6,157 cells x 21,715 genes
+    Total UMIs (mapped reads): 3,978,191
+    Median detected genes per cell: 2345
+
+  Sample file: filtered_feature_bc_matrix_Sample4.h5ad
+    Biological condition: control
+    Dimensions: 6,516 cells x 21,961 genes
+    Total UMIs (mapped reads): 4,273,318
+    Median detected genes per cell: 2626
+
+Summary table (all samples):
+                              file       condition  cells  genes  total_UMIs  median_genes_per_cell
+        filtered_feature_bc_matrix       PSNP_40nm   8729  22613     5384381                 2022.0
+filtered_feature_bc_matrix_Sample2      PSNP_200nm  12676  23206     7853848                 1799.0
+filtered_feature_bc_matrix_Sample3 PSNP_mix_40_200   6157  21715     3978191                 2345.0
+filtered_feature_bc_matrix_Sample4         control   6516  21961     4273318                 2626.0
+
+QC filters (from config): min_genes=200, max_genes=7000, min_counts=500, max_mt%=15. Cells failing these criteria are removed before integration.
+
+------------------------------------------------------------------------
+  STEP 1 - QUALITY CONTROL (per sample)
+------------------------------------------------------------------------
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+
+------------------------------------------------------------------------
+  STEP 2 - MERGE, INTEGRATION, UMAP, CLUSTERING
+------------------------------------------------------------------------
+  Concatenating 4 samples (outer join on genes)...
+  Merged object: 33,240 cells x 24,380 genes
+  Normalizing to 10,000 counts per cell and log1p transform...
+  Selecting top 3000 highly variable genes (HVG, seurat flavor)...
+  Working matrix reduced to 3,000 HVGs
+  Scaling expression (max_value=10)...
+  PCA (30 components)...
+  Batch integration: Combat on sample_id (removes technical batch effects)...
+  Neighbors graph (k=15) and UMAP embedding...
+  Leiden clustering (resolution=0.5)...
+  Found 14 Leiden clusters
+
+------------------------------------------------------------------------
+  STEP 3 - CELL-TYPE ANNOTATION
+------------------------------------------------------------------------
+  Assigning cell types by highest mean marker-gene score per cell...
+  Cell-type counts (marker-based):
+    CD4_T: 15,565
+    NK_cell: 4,064
+    B_cell: 3,989
+    CD8_T_cytotoxic: 3,448
+    Monocyte_CD14: 2,312
+    DC: 2,081
+    Monocyte_CD16: 1,488
+    Platelet: 293
+  Loading external CoDi reference labels from *_CoDi_KLD.csv files...
+  CoDi labels mapped to 99.6% of cells
+
+------------------------------------------------------------------------
+  STEP 4 - CORE UMAP FIGURES
+------------------------------------------------------------------------
+  Saved: results\figures\umap_condition.png
+  Saved: results\figures\umap_clusters.png
+  Saved: results\figures\umap_celltypes_marker.png
+
+------------------------------------------------------------------------
+  STEP 5 - CELL COMPOSITION
+------------------------------------------------------------------------
+  Comparing immune cell proportions across PSNP conditions vs control...
+  Saved table: results\tables\cell_composition_by_condition.csv
+  Saved figure: results\figures\composition_barplot.png
+
+------------------------------------------------------------------------
+  STEP 6 - DIFFERENTIAL EXPRESSION
+------------------------------------------------------------------------
+  Wilcoxon test per cell type; min 20 cells per group...
+  DE done: B_cell - PSNP_40nm vs control (n_test=1029, n_ctrl=717)
+  DE done: B_cell - PSNP_200nm vs control (n_test=1476, n_ctrl=717)
+  DE done: B_cell - PSNP_mix_40_200 vs control (n_test=767, n_ctrl=717)
+  DE done: CD4_T - PSNP_40nm vs control (n_test=4057, n_ctrl=3128)
+  DE done: CD4_T - PSNP_200nm vs control (n_test=5471, n_ctrl=3128)
+  DE done: CD4_T - PSNP_mix_40_200 vs control (n_test=2909, n_ctrl=3128)
+  DE done: CD8_T_cytotoxic - PSNP_40nm vs control (n_test=832, n_ctrl=671)
+  DE done: CD8_T_cytotoxic - PSNP_200nm vs control (n_test=1314, n_ctrl=671)
+  DE done: CD8_T_cytotoxic - PSNP_mix_40_200 vs control (n_test=631, n_ctrl=671)
+  DE done: DC - PSNP_40nm vs control (n_test=610, n_ctrl=351)
+  DE done: DC - PSNP_200nm vs control (n_test=734, n_ctrl=351)
+  DE done: DC - PSNP_mix_40_200 vs control (n_test=386, n_ctrl=351)
+  DE done: Monocyte_CD14 - PSNP_40nm vs control (n_test=556, n_ctrl=364)
+  DE done: Monocyte_CD14 - PSNP_200nm vs control (n_test=1204, n_ctrl=364)
+  DE done: Monocyte_CD14 - PSNP_mix_40_200 vs control (n_test=188, n_ctrl=364)
+  DE done: Monocyte_CD16 - PSNP_40nm vs control (n_test=340, n_ctrl=236)
+  DE done: Monocyte_CD16 - PSNP_200nm vs control (n_test=641, n_ctrl=236)
+  DE done: Monocyte_CD16 - PSNP_mix_40_200 vs control (n_test=271, n_ctrl=236)
+  DE done: NK_cell - PSNP_40nm vs control (n_test=1016, n_ctrl=806)
+  DE done: NK_cell - PSNP_200nm vs control (n_test=1407, n_ctrl=806)
+  DE done: NK_cell - PSNP_mix_40_200 vs control (n_test=835, n_ctrl=806)
+  DE done: Platelet - PSNP_200nm vs control (n_test=174, n_ctrl=83)
+  Ran 22 comparisons; saved 66,000 gene rows to results\tables\differential_expression_all.csv
+  Significant hits (padj<0.05, |logFC|>0.25): 36,478
+
+------------------------------------------------------------------------
+  STEP 7 - PATHWAY ENRICHMENT
+------------------------------------------------------------------------
+  Running Enrichr (GO, KEGG, Reactome) on significant DE genes per cell type x comparison...
+    Enrichr failed for B_cell/PSNP_200nm_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_200nm_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_200nm_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_40nm_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_40nm_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_40nm_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_mix_40_200_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_mix_40_200_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for B_cell/PSNP_mix_40_200_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_200nm_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_200nm_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_200nm_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_40nm_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_40nm_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_40nm_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_mix_40_200_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_mix_40_200_vs_control/KEGG_2021_Human: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD4_T/PSNP_mix_40_200_vs_control/Reactome_2022: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+    Enrichr failed for CD8_T_cytotoxic/PSNP_200nm_vs_control/GO_Biological_Process_2023: Invalid organism 'Human'. Valid options are: c. elegans, caenorhabditis elegans, celegans, d. melanogaster, d. rerio, danio rerio, drosophila, drosophila melanogaster, enrichr, fish, fly, h. sapiens, homo sapiens, hs, hsapiens, human, m. musculus, mm, mouse, mus musculus, nematode, s. cerevisiae, saccharomyces, saccharomyces cerevisiae, worm, yeast, zebrafish
+
+------------------------------------------------------------------------
+  PIPELINE FAILED
+------------------------------------------------------------------------
+  Error: [Errno 22] Invalid argument
+
+========================================================================
+  Finished: 2026-06-03 22:09:45
+========================================================================

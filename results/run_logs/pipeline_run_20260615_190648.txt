@@ -1,0 +1,34 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 19:06:48
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_190648.txt
+========================================================================
+
+------------------------------------------------------------------------
+  PATHWAY ENRICHMENT FIGURES ONLY
+------------------------------------------------------------------------
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_UP.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_T_DOWN.png (3 exposure columns)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_other_T_UP.png (3 exposure columns)
+  Pathway enrichment figures: 18 saved under results\figures\pathway_enrichment
+  Done. 18 figure(s) written.
+
+========================================================================
+  Finished: 2026-06-15 19:07:14
+========================================================================

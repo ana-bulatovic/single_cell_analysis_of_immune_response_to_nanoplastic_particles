@@ -1,0 +1,4 @@
+2026-06-06 12:59:57 | AZIMUTH ANNOTATION - START
+2026-06-06 12:59:57 | Working directory: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles
+2026-06-06 12:59:57 | Log file: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles/results/run_logs/azimuth_run_20260606_125957.txt
+2026-06-06 12:59:57 | Loading R packages (Seurat, SeuratDisk, Azimuth)...

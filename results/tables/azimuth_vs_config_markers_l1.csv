@@ -1,0 +1,9 @@
+azimuth_cell_type_key,azimuth_cell_type,n_azimuth_markers,best_matching_config_type,overlap_with_config
+B,B,10,B_cell,2
+CD4_T,CD4 T,7,,0
+CD8_T,CD8 T,10,CD8_T_cytotoxic,1
+DC,DC,10,,0
+Mono,Mono,10,,0
+NK,NK,10,CD8_T_cytotoxic,4
+other,other,10,,0
+other_T,other T,10,,0

@@ -26,7 +26,8 @@ The pipeline covers quality control, batch integration (Combat), clustering, cel
 - **QC & integration** — Scanpy-based filtering, normalization, HVG selection, Combat integration, UMAP, Leiden clustering
 - **Multi-method annotation** — Seurat/Azimuth (`ref.Rds`), CoDi labels, optional Tangram / cell2location, literature marker validation
 - **Differential expression** — Wilcoxon tests per cell type (each exposure vs control)
-- **Pathway enrichment** — Enrichr (GO, KEGG, Reactome) via `gseapy`
+- **Pathway enrichment** — Enrichr (GO, KEGG, Reactome) on **UP- and DOWN-regulated** DE genes vs control, with summary tables and biological interpretation
+- **Annotation cross-validation** — CoDi vs literature marker contingency matrix (counts, percentages, heatmaps)
 - **Size-specific effects** — Classifies DE genes into unique 40 nm, unique 200 nm, shared solo, shared all three, and mixture-only emergent modules
 - **Reproducibility** — All parameters in `config/config.yaml`; timestamped run logs in `results/run_logs/`
 
@@ -93,9 +94,9 @@ python scripts/run_pipeline.py
 | 4 — Figures | UMAP, dotplots, module score maps |
 | 5 — Composition | Cell-type proportions per condition |
 | 6 — DE | Wilcoxon per cell type, each exposure vs control |
-| 7 — Pathway | Enrichr (GO / KEGG / Reactome) + figures |
+| 7 — Pathway | Enrichr on **UP** and **DOWN** DE genes; heatmaps, summary CSV, EN interpretation report |
 | 8 — Size-specific | Gene classification by particle size (40 nm / 200 nm / mix) |
-| 9 — Additional | Module score tables, pseudobulk, annotation agreement, interpretation |
+| 9 — Additional | Module scores, pseudobulk, **CoDi vs marker contingency matrix**, interpretation |
 | 10 — Save | `data/processed/integrated_annotated.h5ad` |
 
 ---
@@ -130,6 +131,57 @@ annotation:
 | `cell_type_codi_norm` | External CoDi labels from the dataset |
 
 Validation dotplots: `results/figures/annotation_validation/`
+
+### CoDi vs marker gene contingency matrix
+
+Compares cell types assigned by **literature marker panels** (`cell_type_marker`) with **CoDi reference labels** (`cell_type_codi_norm`). Generated in pipeline step 9 (or standalone):
+
+```bash
+python scripts/run_additional_analyses.py
+```
+
+| Output | Description |
+|--------|-------------|
+| `results/tables/annotation_crosstab_marker_codi.csv` | Cell counts per marker × CoDi pair (contingency matrix) |
+| `results/tables/annotation_crosstab_marker_codi_row_pct.csv` | Row-normalized % (dominant CoDi label per marker type) |
+| `results/tables/annotation_codi_marker_mapping.csv` | Long-format mapping with counts and percentages |
+| `results/figures/additional_analyses/annotation_confusion_marker_codi.png` | Heatmap (cell counts) |
+| `results/figures/additional_analyses/annotation_confusion_marker_codi_normalized.png` | Heatmap (row %) |
+
+### ref.Rds / Seurat vs CoDi contingency matrix
+
+Compares **primary annotation** from `ref.Rds` (Seurat/Azimuth, `cell_type_ref`) with **CoDi** labels. Requires `azimuth_annotations.csv` from `Rscript scripts/azimuth_annotation.R`.
+
+| Output | Description |
+|--------|-------------|
+| `results/tables/annotation_crosstab_ref_codi.csv` | Cell counts per ref.Rds × CoDi pair |
+| `results/tables/annotation_crosstab_ref_codi_row_pct.csv` | Row-normalized % |
+| `results/tables/annotation_codi_ref_mapping.csv` | Long-format mapping |
+| `results/figures/additional_analyses/annotation_confusion_ref_codi.png` | Heatmap (cell counts) |
+| `results/figures/additional_analyses/annotation_confusion_ref_codi_normalized.png` | Heatmap (row %) — **recommended for presentation** |
+
+---
+
+## Pathway enrichment (UP vs DOWN vs control)
+
+Step 7 runs Enrichr separately on genes **up-regulated** and **down-regulated** in each exposure compared to control (Wilcoxon DE, padj < 0.05, \|log2FC\| > 0.25).
+
+```bash
+# Full pipeline (includes UP + DOWN enrichment)
+python scripts/run_pipeline.py
+
+# Regenerate figures + summary from saved CSV (add --enrich-missing if only UP was run)
+python scripts/plot_pathway_figures.py --enrich-missing
+```
+
+| Output | Description |
+|--------|-------------|
+| `results/tables/pathway_enrichment_all.csv` | Full Enrichr output; **`direction`** column = `UP` or `DOWN` |
+| `results/tables/pathway_enrichment_summary.csv` | Top pathways per cell type × exposure × direction with biological notes |
+| `results/figures/pathway_enrichment/pathways_{cell_type}_{UP\|DOWN}.png` | Heatmap per cell type and regulation direction |
+| `deliverables/Pathway_Enrichment_Interpretation_EN.md` | English report linking enriched pathways to tissue/organism-level effects |
+
+**How to read direction:** `UP` = pathway genes are higher in the exposed condition than control; `DOWN` = lower in exposure than control.
 
 ---
 
@@ -166,6 +218,8 @@ python scripts/run_additional_analyses.py
 | Antigen presentation | `score_genes` on HLA/MHC panel | `antigen_presentation_scores.csv` |
 | Pseudobulk | Sum UMI per condition × cell type | `pseudobulk_counts_condition_celltype.csv` |
 | Annotation validation | Marker vs CoDi vs Azimuth agreement | `annotation_agreement_metrics.csv` |
+| **CoDi vs marker matrix** | Contingency tables + heatmaps | `annotation_crosstab_marker_codi*.csv`, `annotation_confusion_marker_codi*.png` |
+| **ref.Rds vs CoDi matrix** | Primary Seurat annotation vs CoDi | `annotation_crosstab_ref_codi*.csv`, `annotation_confusion_ref_codi*.png` |
 | Figures | Bar / violin / heatmap / confusion | `results/figures/additional_analyses/` |
 
 Module scores are computed during pipeline step 2 (before HVG subsetting). The standalone script reads them from the `.h5ad` object.
@@ -176,7 +230,8 @@ Module scores are computed during pipeline step 2 (before HVG subsetting). The s
 
 ```bash
 python scripts/plot_figures.py                 # UMAP from .h5ad
-python scripts/plot_pathway_figures.py         # pathway heatmaps from CSV
+python scripts/plot_pathway_figures.py         # pathway heatmaps + UP/DOWN summary report
+python scripts/plot_pathway_figures.py --enrich-missing   # re-run DOWN enrichment if missing
 python scripts/plot_supplementary_figures.py   # volcano, size-specific, DE summary
 python scripts/make_slides.py                  # → deliverables/nanoplastic_scRNA_results.pptx
 ```
@@ -218,14 +273,18 @@ Large data files and generated results are excluded via `.gitignore`. Clone the 
 ### Figures
 
 - `results/figures/` — UMAP, composition, marker dotplots
-- `results/figures/pathway_enrichment/` — pathway heatmaps per cell type
+- `results/figures/pathway_enrichment/` — pathway heatmaps per cell type (**UP** and **DOWN** vs control)
 - `results/figures/supplementary/` — DE volcano, size-specific plots
-- `results/figures/additional_analyses/` — module scores and annotation agreement
+- `results/figures/additional_analyses/` — module scores, annotation agreement, **CoDi vs marker heatmaps**
 
 ### Tables
 
 - `differential_expression_all.csv`
-- `pathway_enrichment_all.csv`
+- `pathway_enrichment_all.csv` — includes `direction` (`UP` / `DOWN`)
+- `pathway_enrichment_summary.csv` — top pathways with regulation direction and biological notes
+- `annotation_crosstab_marker_codi.csv` — CoDi vs marker contingency matrix
+- `annotation_crosstab_ref_codi.csv` — ref.Rds/Seurat vs CoDi contingency matrix
+- `annotation_codi_ref_mapping.csv` — long-format ref.Rds ↔ CoDi mapping
 - `size_specific_effects_summary.csv`
 - `size_specific_interpretation.csv`
 - `module_scores_by_condition.csv`
@@ -238,6 +297,7 @@ Large data files and generated results are excluded via `.gitignore`. Clone the 
 | Document | Description |
 |----------|-------------|
 | [`deliverables/Complete_Results_Report_EN.md`](deliverables/Complete_Results_Report_EN.md) | Full results report |
+| [`deliverables/Pathway_Enrichment_Interpretation_EN.md`](deliverables/Pathway_Enrichment_Interpretation_EN.md) | UP/DOWN pathway enrichment vs control with biological interpretation (generated by pipeline) |
 | [`deliverables/Size_Specific_Effects_Interpretation_EN.md`](deliverables/Size_Specific_Effects_Interpretation_EN.md) | Biological interpretation of size-specific gene modules |
 | [`deliverables/Analysis_Results_Report.md`](deliverables/Analysis_Results_Report.md) | Analysis summary (Serbian) |
 | [`deliverables/marker_gene_selection_report.md`](deliverables/marker_gene_selection_report.md) | Marker gene selection rationale |

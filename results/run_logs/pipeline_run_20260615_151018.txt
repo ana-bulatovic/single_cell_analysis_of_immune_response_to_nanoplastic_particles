@@ -1,0 +1,103 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:10:18
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_151018.txt
+========================================================================
+
+------------------------------------------------------------------------
+  PATHWAY ENRICHMENT FIGURES ONLY
+------------------------------------------------------------------------
+  Added direction=UP to legacy enrichment table
+  Running enrichment for: DOWN
+  Running Enrichr (GO, KEGG, Reactome) on significant DOWN DE genes per cell type x comparison...
+    DOWN: B_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1160 input genes)
+    DOWN: B_cell / PSNP_200nm_vs_control / KEGG_2021_Human (1160 input genes)
+    DOWN: B_cell / PSNP_200nm_vs_control / Reactome_2022 (1160 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1062 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / KEGG_2021_Human (1062 input genes)
+    DOWN: B_cell / PSNP_40nm_vs_control / Reactome_2022 (1062 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (450 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (450 input genes)
+    DOWN: B_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (450 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (498 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / KEGG_2021_Human (498 input genes)
+    DOWN: CD4_T / PSNP_200nm_vs_control / Reactome_2022 (498 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1150 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / KEGG_2021_Human (1150 input genes)
+    DOWN: CD4_T / PSNP_40nm_vs_control / Reactome_2022 (1150 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (578 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (578 input genes)
+    DOWN: CD4_T / PSNP_mix_40_200_vs_control / Reactome_2022 (578 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / GO_Biological_Process_2023 (941 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / KEGG_2021_Human (941 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_200nm_vs_control / Reactome_2022 (941 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / GO_Biological_Process_2023 (795 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / KEGG_2021_Human (795 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_40nm_vs_control / Reactome_2022 (795 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (552 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / KEGG_2021_Human (552 input genes)
+    DOWN: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / Reactome_2022 (552 input genes)
+    DOWN: DC / PSNP_200nm_vs_control / GO_Biological_Process_2023 (806 input genes)
+    DOWN: DC / PSNP_200nm_vs_control / KEGG_2021_Human (806 input genes)
+    DOWN: DC / PSNP_200nm_vs_control / Reactome_2022 (806 input genes)
+    DOWN: DC / PSNP_40nm_vs_control / GO_Biological_Process_2023 (672 input genes)
+    DOWN: DC / PSNP_40nm_vs_control / KEGG_2021_Human (672 input genes)
+    DOWN: DC / PSNP_40nm_vs_control / Reactome_2022 (672 input genes)
+    DOWN: DC / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (425 input genes)
+    DOWN: DC / PSNP_mix_40_200_vs_control / KEGG_2021_Human (425 input genes)
+    DOWN: DC / PSNP_mix_40_200_vs_control / Reactome_2022 (425 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (691 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / KEGG_2021_Human (691 input genes)
+    DOWN: Monocyte_CD14 / PSNP_200nm_vs_control / Reactome_2022 (691 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1438 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / KEGG_2021_Human (1438 input genes)
+    DOWN: Monocyte_CD14 / PSNP_40nm_vs_control / Reactome_2022 (1438 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (259 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (259 input genes)
+    DOWN: Monocyte_CD14 / PSNP_mix_40_200_vs_control / Reactome_2022 (259 input genes)
+    DOWN: Monocyte_CD16 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1021 input genes)
+    DOWN: Monocyte_CD16 / PSNP_200nm_vs_control / KEGG_2021_Human (1021 input genes)
+    DOWN: Monocyte_CD16 / PSNP_200nm_vs_control / Reactome_2022 (1021 input genes)
+    DOWN: Monocyte_CD16 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (585 input genes)
+    DOWN: Monocyte_CD16 / PSNP_40nm_vs_control / KEGG_2021_Human (585 input genes)
+    DOWN: Monocyte_CD16 / PSNP_40nm_vs_control / Reactome_2022 (585 input genes)
+    DOWN: Monocyte_CD16 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (455 input genes)
+    DOWN: Monocyte_CD16 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (455 input genes)
+    DOWN: Monocyte_CD16 / PSNP_mix_40_200_vs_control / Reactome_2022 (455 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (967 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / KEGG_2021_Human (967 input genes)
+    DOWN: NK_cell / PSNP_200nm_vs_control / Reactome_2022 (967 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (979 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / KEGG_2021_Human (979 input genes)
+    DOWN: NK_cell / PSNP_40nm_vs_control / Reactome_2022 (979 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (690 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (690 input genes)
+    DOWN: NK_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (690 input genes)
+    DOWN: Platelet / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1123 input genes)
+    DOWN: Platelet / PSNP_200nm_vs_control / KEGG_2021_Human (1123 input genes)
+    DOWN: Platelet / PSNP_200nm_vs_control / Reactome_2022 (1123 input genes)
+  Merged with existing table -> 176,345 rows total
+  Saved: results\tables\pathway_enrichment_all.csv (176,345 rows)
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD16_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD16_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_UP.png
+  Pathway enrichment figures: 16 saved under results\figures\pathway_enrichment
+  Done. 16 figure(s) written.
+
+========================================================================
+  Finished: 2026-06-15 15:16:55
+========================================================================

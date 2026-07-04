@@ -1,0 +1,7 @@
+2026-06-06 17:22:16 | AZIMUTH ANNOTATION - START
+2026-06-06 17:22:16 | Working directory: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles
+2026-06-06 17:22:16 | Log file: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles/results/run_logs/azimuth_run_20260606_172216.txt
+2026-06-06 17:22:16 | Loading R packages (Seurat, SeuratDisk, Azimuth)...
+2026-06-06 17:22:42 | Packages loaded.
+2026-06-06 17:22:42 | Converting h5ad -> h5seurat -> Seurat object...
+2026-06-06 17:22:42 | Input: data/processed/integrated_annotated.h5ad (this step can take several minutes)

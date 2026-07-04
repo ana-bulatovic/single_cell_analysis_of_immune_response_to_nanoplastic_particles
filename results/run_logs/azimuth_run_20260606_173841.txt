@@ -1,0 +1,10 @@
+2026-06-06 17:38:41 | AZIMUTH ANNOTATION - START
+2026-06-06 17:38:41 | Working directory: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles
+2026-06-06 17:38:41 | Log file: C:/Users/ANA/Desktop/Faks/Master/GI/Projekat/single_cell_analysis_of_immune_response_to_nanoplastic_particles/results/run_logs/azimuth_run_20260606_173841.txt
+2026-06-06 17:38:41 | Loading R packages (Seurat, Azimuth)...
+2026-06-06 17:39:12 | Packages loaded.
+2026-06-06 17:39:12 | Loading 10x matrix into Seurat object...
+2026-06-06 17:39:12 | Input: data/processed/azimuth_mtx
+2026-06-06 17:39:29 | Load done in 0.3 min; cells: 33240 features: 3000
+2026-06-06 17:39:29 | Running RunAzimuth with reference: data/raw/ref.Rds
+2026-06-06 17:39:29 | (expect ~15-45 min on a typical laptop for ~33k cells)

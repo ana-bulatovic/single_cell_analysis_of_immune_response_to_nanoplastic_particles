@@ -1,0 +1,24 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-04 00:40:26
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260604_004026.txt
+========================================================================
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+  Merged object: 33,240 cells x 20,388 genes
+  Normalizing to 10,000 counts per cell and log1p transform...
+  Selecting top 3000 highly variable genes (HVG, seurat flavor)...
+  Working matrix reduced to 3,000 HVGs
+  Scaling expression (max_value=10)...
+  PCA (30 components)...
+  Batch integration: Combat on sample_id (removes technical batch effects)...
+  Neighbors graph (k=15) and UMAP embedding...
+  Leiden clustering (resolution=0.5)...
+  Found 14 Leiden clusters
+
+========================================================================
+  Finished: 2026-06-04 00:45:26
+========================================================================

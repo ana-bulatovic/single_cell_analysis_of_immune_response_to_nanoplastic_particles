@@ -79,6 +79,6 @@ markers:
   B_cell: ["MS4A1", "CD79A", "CD74"]
   NK_cell: ["NKG7", "KLRD1", "TRAC"]
   Monocyte_CD14: ["LYZ", "S100A8", "S100A9", "CTSS"]
-  Monocyte_CD16: ["FCGR3A", "LST1", "MS4A7"]
-  DC: ["FCER1A", "CST3"]
+  Monocyte_CD16: ["FCGR3A", "LST1", "MS4A7", "IFITM3", "LGALS3", "MS4A4A"]
+  DC: ["CD1C", "CLEC9A", "ITGAX", "IRF8", "FCER1A", "CST3"]
   Platelet: ["PPBP", "PF4"]

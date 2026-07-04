@@ -1,0 +1,309 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-06 12:18:58
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260606_121858.txt
+========================================================================
+
+------------------------------------------------------------------------
+  CONFIGURATION
+------------------------------------------------------------------------
+  Project: Single-Cell Analysis of Immune Response to Nanoplastic Particles
+  Integration: combat
+  Raw data: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\data\raw
+  Results: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results
+
+------------------------------------------------------------------------
+  STEP 0 - RAW DATA OVERVIEW
+------------------------------------------------------------------------
+Dataset: PBMC from one donor exposed to polystyrene nanoplastic particles (PSNP) at 40 nm, 200 nm, or a 40+200 nm mix, plus an untreated control. Each file is a filtered 10x gene-cell count matrix stored as AnnData (.h5ad).
+
+Matrix layout: rows = cells (barcodes), columns = genes; values = UMI counts.
+
+  Sample file: filtered_feature_bc_matrix.h5ad
+    Biological condition: PSNP_40nm
+    Dimensions: 8,729 cells x 22,613 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample2.h5ad
+    Biological condition: PSNP_200nm
+    Dimensions: 12,676 cells x 23,206 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample3.h5ad
+    Biological condition: PSNP_mix_40_200
+    Dimensions: 6,157 cells x 21,715 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+  Sample file: filtered_feature_bc_matrix_Sample4.h5ad
+    Biological condition: control
+    Dimensions: 6,516 cells x 21,961 genes
+    Total UMIs: n/a
+    Median detected genes per cell: n/a
+
+Summary table (all samples):
+                              file       condition  cells  genes total_UMIs  median_genes_per_cell
+        filtered_feature_bc_matrix       PSNP_40nm   8729  22613        n/a                    NaN
+filtered_feature_bc_matrix_Sample2      PSNP_200nm  12676  23206        n/a                    NaN
+filtered_feature_bc_matrix_Sample3 PSNP_mix_40_200   6157  21715        n/a                    NaN
+filtered_feature_bc_matrix_Sample4         control   6516  21961        n/a                    NaN
+
+QC filters (from config): min_genes=200, max_genes=7000, min_counts=500, max_mt%=15. Cells failing these criteria are removed before integration.
+
+------------------------------------------------------------------------
+  STEP 1 - QUALITY CONTROL (per sample)
+------------------------------------------------------------------------
+  filtered_feature_bc_matrix (PSNP_40nm): 8,729 -> 8,458 cells after QC (96.9% retained)
+  filtered_feature_bc_matrix_Sample2 (PSNP_200nm): 12,676 -> 12,421 cells after QC (98.0% retained)
+  Merging filtered_feature_bc_matrix_Sample2 into integrated object (8,458 + 12,421 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample3 (PSNP_mix_40_200): 6,157 -> 6,005 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample3 into integrated object (20,879 + 6,005 cells, inner join on genes)...
+  filtered_feature_bc_matrix_Sample4 (control): 6,516 -> 6,356 cells after QC (97.5% retained)
+  Merging filtered_feature_bc_matrix_Sample4 into integrated object (26,884 + 6,356 cells, inner join on genes)...
+
+------------------------------------------------------------------------
+  STEP 2 - MERGE, INTEGRATION, UMAP, CLUSTERING
+------------------------------------------------------------------------
+  All samples merged: 33,240 cells x 20,388 genes (incremental concat, inner join)
+  Merged object: 33,240 cells x 20,388 genes
+  Normalizing to 10,000 counts per cell and log1p transform...
+  Selecting top 3000 highly variable genes (HVG, seurat flavor)...
+  Working matrix reduced to 3,000 HVGs
+  Scaling expression (max_value=10)...
+  PCA (30 components)...
+  Batch integration: Combat on sample_id (removes technical batch effects)...
+  Neighbors graph (k=15) and UMAP embedding...
+  Leiden clustering (resolution=0.5)...
+  Found 14 Leiden clusters
+
+------------------------------------------------------------------------
+  STEP 3 - CELL-TYPE ANNOTATION
+------------------------------------------------------------------------
+  Assigning cell types by highest mean marker-gene score per cell...
+  Cell-type counts (marker-based):
+    CD4_T: 15,568
+    NK_cell: 4,064
+    B_cell: 3,986
+    CD8_T_cytotoxic: 3,449
+    Monocyte_CD14: 2,313
+    DC: 2,078
+    Monocyte_CD16: 1,488
+    Platelet: 294
+  Loading external CoDi reference labels from *_CoDi_KLD.csv files...
+  CoDi labels mapped to 99.6% of cells
+
+------------------------------------------------------------------------
+  STEP 4 - CORE UMAP FIGURES
+------------------------------------------------------------------------
+  Saved: results\figures\umap_condition.png
+  Saved: results\figures\umap_clusters.png
+  Saved: results\figures\umap_celltypes_marker.png
+
+------------------------------------------------------------------------
+  STEP 5 - CELL COMPOSITION
+------------------------------------------------------------------------
+  Comparing immune cell proportions across PSNP conditions vs control...
+  Saved table: results\tables\cell_composition_by_condition.csv
+  Saved figure: results\figures\composition_barplot.png
+
+------------------------------------------------------------------------
+  STEP 6 - DIFFERENTIAL EXPRESSION
+------------------------------------------------------------------------
+  Wilcoxon test per cell type; min 20 cells per group...
+  DE done: B_cell - PSNP_40nm vs control (n_test=1027, n_ctrl=716)
+  DE done: B_cell - PSNP_200nm vs control (n_test=1476, n_ctrl=716)
+  DE done: B_cell - PSNP_mix_40_200 vs control (n_test=767, n_ctrl=716)
+  DE done: CD4_T - PSNP_40nm vs control (n_test=4060, n_ctrl=3129)
+  DE done: CD4_T - PSNP_200nm vs control (n_test=5470, n_ctrl=3129)
+  DE done: CD4_T - PSNP_mix_40_200 vs control (n_test=2909, n_ctrl=3129)
+  DE done: CD8_T_cytotoxic - PSNP_40nm vs control (n_test=832, n_ctrl=671)
+  DE done: CD8_T_cytotoxic - PSNP_200nm vs control (n_test=1315, n_ctrl=671)
+  DE done: CD8_T_cytotoxic - PSNP_mix_40_200 vs control (n_test=631, n_ctrl=671)
+  DE done: DC - PSNP_40nm vs control (n_test=609, n_ctrl=350)
+  DE done: DC - PSNP_200nm vs control (n_test=733, n_ctrl=350)
+  DE done: DC - PSNP_mix_40_200 vs control (n_test=386, n_ctrl=350)
+  DE done: Monocyte_CD14 - PSNP_40nm vs control (n_test=556, n_ctrl=364)
+  DE done: Monocyte_CD14 - PSNP_200nm vs control (n_test=1205, n_ctrl=364)
+  DE done: Monocyte_CD14 - PSNP_mix_40_200 vs control (n_test=188, n_ctrl=364)
+  DE done: Monocyte_CD16 - PSNP_40nm vs control (n_test=340, n_ctrl=236)
+  DE done: Monocyte_CD16 - PSNP_200nm vs control (n_test=641, n_ctrl=236)
+  DE done: Monocyte_CD16 - PSNP_mix_40_200 vs control (n_test=271, n_ctrl=236)
+  DE done: NK_cell - PSNP_40nm vs control (n_test=1016, n_ctrl=806)
+  DE done: NK_cell - PSNP_200nm vs control (n_test=1407, n_ctrl=806)
+  DE done: NK_cell - PSNP_mix_40_200 vs control (n_test=835, n_ctrl=806)
+  DE done: Platelet - PSNP_200nm vs control (n_test=174, n_ctrl=84)
+  Ran 22 comparisons; saved 66,000 gene rows to results\tables\differential_expression_all.csv
+  Significant hits (padj<0.05, |logFC|>0.25): 36,814
+
+------------------------------------------------------------------------
+  STEP 7 - PATHWAY ENRICHMENT
+------------------------------------------------------------------------
+  Running Enrichr (GO, KEGG, Reactome) on significant DE genes per cell type x comparison...
+    Enriched: B_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (816 input genes)
+    Enriched: B_cell / PSNP_200nm_vs_control / KEGG_2021_Human (816 input genes)
+    Enriched: B_cell / PSNP_200nm_vs_control / Reactome_2022 (816 input genes)
+    Enriched: B_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (378 input genes)
+    Enriched: B_cell / PSNP_40nm_vs_control / KEGG_2021_Human (378 input genes)
+    Enriched: B_cell / PSNP_40nm_vs_control / Reactome_2022 (378 input genes)
+    Enriched: B_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1401 input genes)
+    Enriched: B_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1401 input genes)
+    Enriched: B_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (1401 input genes)
+    Enriched: CD4_T / PSNP_200nm_vs_control / GO_Biological_Process_2023 (1021 input genes)
+    Enriched: CD4_T / PSNP_200nm_vs_control / KEGG_2021_Human (1021 input genes)
+    Enriched: CD4_T / PSNP_200nm_vs_control / Reactome_2022 (1021 input genes)
+    Enriched: CD4_T / PSNP_40nm_vs_control / GO_Biological_Process_2023 (352 input genes)
+    Enriched: CD4_T / PSNP_40nm_vs_control / KEGG_2021_Human (352 input genes)
+    Enriched: CD4_T / PSNP_40nm_vs_control / Reactome_2022 (352 input genes)
+    Enriched: CD4_T / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (727 input genes)
+    Enriched: CD4_T / PSNP_mix_40_200_vs_control / KEGG_2021_Human (727 input genes)
+    Enriched: CD4_T / PSNP_mix_40_200_vs_control / Reactome_2022 (727 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_200nm_vs_control / GO_Biological_Process_2023 (849 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_200nm_vs_control / KEGG_2021_Human (849 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_200nm_vs_control / Reactome_2022 (849 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_40nm_vs_control / GO_Biological_Process_2023 (475 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_40nm_vs_control / KEGG_2021_Human (475 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_40nm_vs_control / Reactome_2022 (475 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1235 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1235 input genes)
+    Enriched: CD8_T_cytotoxic / PSNP_mix_40_200_vs_control / Reactome_2022 (1235 input genes)
+    Enriched: DC / PSNP_200nm_vs_control / GO_Biological_Process_2023 (870 input genes)
+    Enriched: DC / PSNP_200nm_vs_control / KEGG_2021_Human (870 input genes)
+    Enriched: DC / PSNP_200nm_vs_control / Reactome_2022 (870 input genes)
+    Enriched: DC / PSNP_40nm_vs_control / GO_Biological_Process_2023 (493 input genes)
+    Enriched: DC / PSNP_40nm_vs_control / KEGG_2021_Human (493 input genes)
+    Enriched: DC / PSNP_40nm_vs_control / Reactome_2022 (493 input genes)
+    Enriched: DC / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1501 input genes)
+    Enriched: DC / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1501 input genes)
+    Enriched: DC / PSNP_mix_40_200_vs_control / Reactome_2022 (1501 input genes)
+    Enriched: Monocyte_CD14 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (863 input genes)
+    Enriched: Monocyte_CD14 / PSNP_200nm_vs_control / KEGG_2021_Human (863 input genes)
+    Enriched: Monocyte_CD14 / PSNP_200nm_vs_control / Reactome_2022 (863 input genes)
+    Enriched: Monocyte_CD14 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (585 input genes)
+    Enriched: Monocyte_CD14 / PSNP_40nm_vs_control / KEGG_2021_Human (585 input genes)
+    Enriched: Monocyte_CD14 / PSNP_40nm_vs_control / Reactome_2022 (585 input genes)
+    Enriched: Monocyte_CD14 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1929 input genes)
+    Enriched: Monocyte_CD14 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1929 input genes)
+    Enriched: Monocyte_CD14 / PSNP_mix_40_200_vs_control / Reactome_2022 (1929 input genes)
+    Enriched: Monocyte_CD16 / PSNP_200nm_vs_control / GO_Biological_Process_2023 (797 input genes)
+    Enriched: Monocyte_CD16 / PSNP_200nm_vs_control / KEGG_2021_Human (797 input genes)
+    Enriched: Monocyte_CD16 / PSNP_200nm_vs_control / Reactome_2022 (797 input genes)
+    Enriched: Monocyte_CD16 / PSNP_40nm_vs_control / GO_Biological_Process_2023 (1126 input genes)
+    Enriched: Monocyte_CD16 / PSNP_40nm_vs_control / KEGG_2021_Human (1126 input genes)
+    Enriched: Monocyte_CD16 / PSNP_40nm_vs_control / Reactome_2022 (1126 input genes)
+    Enriched: Monocyte_CD16 / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1096 input genes)
+    Enriched: Monocyte_CD16 / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1096 input genes)
+    Enriched: Monocyte_CD16 / PSNP_mix_40_200_vs_control / Reactome_2022 (1096 input genes)
+    Enriched: NK_cell / PSNP_200nm_vs_control / GO_Biological_Process_2023 (908 input genes)
+    Enriched: NK_cell / PSNP_200nm_vs_control / KEGG_2021_Human (908 input genes)
+    Enriched: NK_cell / PSNP_200nm_vs_control / Reactome_2022 (908 input genes)
+    Enriched: NK_cell / PSNP_40nm_vs_control / GO_Biological_Process_2023 (709 input genes)
+    Enriched: NK_cell / PSNP_40nm_vs_control / KEGG_2021_Human (709 input genes)
+    Enriched: NK_cell / PSNP_40nm_vs_control / Reactome_2022 (709 input genes)
+    Enriched: NK_cell / PSNP_mix_40_200_vs_control / GO_Biological_Process_2023 (1090 input genes)
+    Enriched: NK_cell / PSNP_mix_40_200_vs_control / KEGG_2021_Human (1090 input genes)
+    Enriched: NK_cell / PSNP_mix_40_200_vs_control / Reactome_2022 (1090 input genes)
+    Enriched: Platelet / PSNP_200nm_vs_control / GO_Biological_Process_2023 (296 input genes)
+    Enriched: Platelet / PSNP_200nm_vs_control / KEGG_2021_Human (296 input genes)
+    Enriched: Platelet / PSNP_200nm_vs_control / Reactome_2022 (296 input genes)
+  Saved: results\tables\pathway_enrichment_all.csv (89,015 rows)
+
+------------------------------------------------------------------------
+  STEP 8 - SIZE-SPECIFIC EFFECTS
+------------------------------------------------------------------------
+  Classifying DE genes by particle size (unique 40nm / 200nm / shared / mix-only)...
+    B_cell: unique_40nm=198, unique_200nm=335, shared_40_200=339, shared_all_three=624, mix_only_emergent=270
+    CD4_T: unique_40nm=325, unique_200nm=260, shared_40_200=470, shared_all_three=452, mix_only_emergent=261
+    CD8_T_cytotoxic: unique_40nm=180, unique_200nm=328, shared_40_200=310, shared_all_three=527, mix_only_emergent=382
+    DC: unique_40nm=163, unique_200nm=296, shared_40_200=177, shared_all_three=504, mix_only_emergent=402
+    Monocyte_CD14: unique_40nm=203, unique_200nm=81, shared_40_200=267, shared_all_three=865, mix_only_emergent=294
+    Monocyte_CD16: unique_40nm=221, unique_200nm=269, shared_40_200=487, shared_all_three=697, mix_only_emergent=183
+    NK_cell: unique_40nm=205, unique_200nm=287, shared_40_200=398, shared_all_three=748, mix_only_emergent=253
+    Platelet: unique_40nm=0, unique_200nm=1419, shared_40_200=0, shared_all_three=0, mix_only_emergent=0
+  Saved: results\tables\size_specific_effects_summary.csv
+
+------------------------------------------------------------------------
+  STEP 9 - ADDITIONAL ANALYSES
+------------------------------------------------------------------------
+  [1/5] Cell-cycle scores (S and G2/M phases)...
+  Warning: cell-cycle genes missing - scores set to NaN
+  Saved: results\tables\cell_cycle_scores_by_condition.csv
+  [2/5] Interferon (IFN) response signature...
+  Saved: results\tables\ifn_scores_by_condition.csv
+  [3/5] Antigen presentation score (HLA pathway)...
+  Saved: results\tables\antigen_presentation_scores.csv
+  [4/5] Pseudobulk counts (sum UMIs per condition x cell type)...
+  Saved: results\tables\pseudobulk_counts_condition_celltype.csv (32 groups)
+  [5/5] CoDi vs marker annotation agreement...
+  Agreement fraction: 0.647 - saved results\tables\annotation_agreement_metrics.csv
+
+------------------------------------------------------------------------
+  STEP 10 - SAVE PROCESSED OBJECT
+------------------------------------------------------------------------
+  Saved integrated AnnData: data\processed\integrated_annotated.h5ad
+  Final object: 33,240 cells x 3,000 genes (HVG space)
+
+------------------------------------------------------------------------
+  OUTPUT FILES - TABLES
+------------------------------------------------------------------------
+  annotation_agreement_metrics.csv
+  antigen_presentation_scores.csv
+  cell_composition_by_condition.csv
+  cell_cycle_scores_by_condition.csv
+  differential_expression_all.csv
+  ifn_scores_by_condition.csv
+  pathway_enrichment_all.csv
+  pseudobulk_counts_condition_celltype.csv
+  size_specific_effects_summary.csv
+
+------------------------------------------------------------------------
+  OUTPUT FILES - FIGURES
+------------------------------------------------------------------------
+  composition_barplot.png
+  umap_celltypes_marker.png
+  umap_clusters.png
+  umap_condition.png
+
+------------------------------------------------------------------------
+  FIGURE GUIDE (for slides)
+------------------------------------------------------------------------
+Use these captions when building your PowerPoint:
+
+  umap_condition.png
+    UMAP of all integrated cells colored by experimental condition (40 nm PSNP, 200 nm PSNP, mixed PSNP, or untreated control). Shows whether samples mix after batch correction and if exposure drives visible transcriptional shifts.
+
+  umap_clusters.png
+    UMAP colored by Leiden clusters (unsupervised groups). Each cluster is a group of cells with similar expression profiles; clusters are later linked to cell types via marker genes.
+
+  umap_celltypes_marker.png
+    UMAP colored by marker-based PBMC cell types (T, B, NK, monocytes, etc.). Assignment uses canonical marker gene sets from config.yaml.
+
+  composition_barplot.png
+    Stacked bar chart of cell-type fractions per condition. Answers whether nanoplastic exposure changes immune cell proportions (e.g. more monocytes, fewer T cells) relative to control.
+
+
+------------------------------------------------------------------------
+  TABLE GUIDE (for slides)
+------------------------------------------------------------------------
+  cell_composition_by_condition.csv: Cell counts and fractions per condition and marker-based cell type.
+  differential_expression_all.csv: Wilcoxon DE results: each exposure vs control, stratified by cell type.
+  pathway_enrichment_all.csv: Enrichr hits (GO/KEGG/Reactome) for significant upregulated genes.
+  size_specific_effects_summary.csv: Counts of DE genes unique to 40 nm, 200 nm, shared, or mix-only effects.
+  cell_cycle_scores_by_condition.csv: Mean S and G2M phase scores - proxy for proliferation/stress.
+  ifn_scores_by_condition.csv: Mean interferon signature - innate immune activation.
+  antigen_presentation_scores.csv: Mean HLA-related score by condition and cell type.
+  pseudobulk_counts_condition_celltype.csv: Summed UMI counts per conditionxcell type for bulk-style follow-up.
+  annotation_agreement_metrics.csv: Fraction of cells where CoDi reference label matches marker annotation.
+
+------------------------------------------------------------------------
+  PIPELINE COMPLETE
+------------------------------------------------------------------------
+  All steps finished successfully.
+  Full run log copied to: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260606_121858.txt
+  Next optional step: Rscript scripts/azimuth_annotation.R for Azimuth labels.
+
+========================================================================
+  Finished: 2026-06-06 12:27:33
+========================================================================

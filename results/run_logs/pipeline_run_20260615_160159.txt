@@ -1,0 +1,56 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 16:01:59
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_160159.txt
+========================================================================
+
+------------------------------------------------------------------------
+  AZIMUTH MARKER EXTRACTION (full gene space)
+------------------------------------------------------------------------
+  Note: azimuth_annotations.csv is OLDER than integrated_annotated.h5ad. If pipeline was re-run, refresh Azimuth first:
+    python scripts/prepare_azimuth_h5ad.py
+    Rscript scripts/azimuth_annotation.R
+  Reading cell barcodes from data\processed\integrated_annotated.h5ad ...
+  Loading 8,458 cells from filtered_feature_bc_matrix.h5ad ...
+  Loading 12,421 cells from filtered_feature_bc_matrix_Sample2.h5ad ...
+  Loading 6,005 cells from filtered_feature_bc_matrix_Sample3.h5ad ...
+  Loading 6,356 cells from filtered_feature_bc_matrix_Sample4.h5ad ...
+  Full-gene expression: 33,116 cells x 20,388 genes
+  Azimuth L1, score>=0.5: 32,866 / 33,116 cells kept
+    CD8 T: 13,046
+    CD4 T: 11,506
+    B: 2,616
+    NK: 2,358
+    Mono: 1,748
+    other T: 1,345
+    other: 212
+    DC: 35
+  HVG subset for marker search: 4,000 genes
+  Wilcoxon one-vs-rest on 4,000 genes, 8 Azimuth types...
+  Ranked 6,400 gene x cell-type rows (top 800 per type)
+  Saved: results\tables\azimuth_marker_genes_l1.csv
+  Saved: results\tables\azimuth_marker_panels_l1.csv (77 panel genes)
+  Saved: results\tables\azimuth_marker_panels_l1.yaml
+  Saved: results\tables\azimuth_vs_config_markers_l1.csv
+  Saved: results\figures\azimuth_marker_dotplot_l1.png
+
+------------------------------------------------------------------------
+  TOP MARKERS (preview)
+------------------------------------------------------------------------
+  B: MS4A1, CD79A, BANK1, HLA-DRA, HLA-DRB1, RALGPS2, HLA-DQA1, PLEKHG1, HLA-DPA1, MEF2C
+  CD4 T: TSHZ2, FAAH2, CMTM8, RP4-678D15.1, FHIT, INPP4B, APOLD1
+  CD8 T: CD8B, CD8A, PTPRK, SAMD3, MVB12B, C1orf21, ABCB1, LRRN3, NKG7, C12orf75
+  DC: HLA-DQA1, ADRBK2, HLA-DQB1, HLA-DRA, HLA-DRB1, TCF4, ALCAM, CSF2RA, MCOLN2, HLA-DPA1
+  Mono: KYNU, RP11-519G16.3, DOCK4, SLC7A11, ANPEP, CYP1B1, PLAUR, RAB31, MMP14, EREG
+  NK: GNLY, NKG7, TYROBP, GZMB, C1orf21, KLRD1, FGFBP2, METRNL, NCALD, PRF1
+  other: ATP8B4, SWAP70, TMEM164, BASP1, ZMIZ1, GAB1, RAB31, DOCK5, EMR2, CDK14
+  other T: KLRB1, GZMK, ME1, CXCR6, CEBPD, SLC4A10, ZBTB16, AC092580.4, AMICA1, ADAM12
+
+------------------------------------------------------------------------
+  DONE
+------------------------------------------------------------------------
+
+========================================================================
+  Finished: 2026-06-15 16:10:05
+========================================================================

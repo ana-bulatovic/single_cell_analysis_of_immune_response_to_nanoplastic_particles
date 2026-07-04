@@ -1,0 +1,6 @@
+metric,value,description
+primary_marker_agreement,0.4717809867629362,Primary annotation vs literature marker validation
+seurat_marker_agreement,0.47535616853592,Fraction where seurat label matches literature markers
+seurat_mapped_fraction,0.9924789410348978,Fraction of cells with valid seurat label
+codi_marker_agreement,0.6538601823708207,Fraction where codi label matches literature markers
+codi_mapped_fraction,0.9897713598074609,Fraction of cells with valid codi label

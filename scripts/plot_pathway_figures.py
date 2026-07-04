@@ -20,10 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from run_pipeline import (
     PipelineLogger,
+    export_pathway_enrichment_summary,
     load_config,
     pathway_enrichment,
     plot_pathway_enrichment_figures,
     setup_paths,
+    write_pathway_enrichment_interpretation,
 )
 
 
@@ -72,6 +74,8 @@ def main() -> None:
             )
 
         saved = plot_pathway_enrichment_figures(enr_all, cfg, paths, log)
+        summary = export_pathway_enrichment_summary(enr_all, cfg, paths, log)
+        write_pathway_enrichment_interpretation(summary, paths, log, cfg=cfg)
         log.log(f"  Done. {len(saved)} figure(s) written.")
     finally:
         log.close()

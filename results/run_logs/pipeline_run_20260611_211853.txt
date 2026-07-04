@@ -1,0 +1,25 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-11 21:18:53
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260611_211853.txt
+========================================================================
+
+------------------------------------------------------------------------
+  REGENERATE FIGURES ONLY
+------------------------------------------------------------------------
+  Loading: data\processed\integrated_annotated.h5ad
+  Object: 33,240 cells x 3,000 genes
+  Saved: results\figures\umap_condition.png
+  Saved: results\figures\umap_clusters.png
+  Saved: results\figures\umap_celltypes_marker.png
+  Saved: results\figures\umap_split_by_condition.png
+  Saved: results\figures\umap_sample_integration.png
+  Saved: results\figures\umap_module_scores.png
+  Saved: results\figures\umap_codi_celltypes.png
+  Saved: results\figures\marker_dotplot.png
+  Wrote 8 figure(s) to results\figures
+
+========================================================================
+  Finished: 2026-06-11 21:19:07
+========================================================================

@@ -1,0 +1,20 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 17:34:00
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_173400.txt
+========================================================================
+  Marker source: Azimuth-derived panels (azimuth_marker_panels_l1.yaml)
+    B_cell: 10 genes
+    CD4_T: 7 genes
+    CD8_T_cytotoxic: 10 genes
+    DC: 10 genes
+    Monocyte_CD14: 10 genes
+    NK_cell: 10 genes
+    Platelet: 2 genes
+    other: 10 genes
+    other_T: 10 genes
+
+========================================================================
+  Finished: 2026-06-15 17:34:00
+========================================================================

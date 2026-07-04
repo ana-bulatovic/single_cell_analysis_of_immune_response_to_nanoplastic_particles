@@ -1,0 +1,62 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE — RUN LOG
+  Started: 2026-06-03 21:53:53
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260603_215353.txt
+========================================================================
+
+------------------------------------------------------------------------
+  CONFIGURATION
+------------------------------------------------------------------------
+  Project: Single-Cell Analysis of Immune Response to Nanoplastic Particles
+  Integration: combat
+  Raw data: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\data\raw
+  Results: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results
+
+------------------------------------------------------------------------
+  STEP 0 — RAW DATA OVERVIEW
+------------------------------------------------------------------------
+Dataset: PBMC from one donor exposed to polystyrene nanoplastic particles (PSNP) at 40 nm, 200 nm, or a 40+200 nm mix, plus an untreated control. Each file is a filtered 10x gene-cell count matrix stored as AnnData (.h5ad).
+
+Matrix layout: rows = cells (barcodes), columns = genes; values = UMI counts.
+
+  Sample file: filtered_feature_bc_matrix.h5ad
+    Biological condition: PSNP_40nm
+    Dimensions: 8,729 cells × 22,613 genes
+    Total UMIs (mapped reads): 5,384,381
+    Median detected genes per cell: 2022
+
+  Sample file: filtered_feature_bc_matrix_Sample2.h5ad
+    Biological condition: PSNP_200nm
+    Dimensions: 12,676 cells × 23,206 genes
+    Total UMIs (mapped reads): 7,853,848
+    Median detected genes per cell: 1799
+
+  Sample file: filtered_feature_bc_matrix_Sample3.h5ad
+    Biological condition: PSNP_mix_40_200
+    Dimensions: 6,157 cells × 21,715 genes
+    Total UMIs (mapped reads): 3,978,191
+    Median detected genes per cell: 2345
+
+  Sample file: filtered_feature_bc_matrix_Sample4.h5ad
+    Biological condition: control
+    Dimensions: 6,516 cells × 21,961 genes
+    Total UMIs (mapped reads): 4,273,318
+    Median detected genes per cell: 2626
+
+Summary table (all samples):
+                              file       condition  cells  genes  total_UMIs  median_genes_per_cell
+        filtered_feature_bc_matrix       PSNP_40nm   8729  22613     5384381                 2022.0
+filtered_feature_bc_matrix_Sample2      PSNP_200nm  12676  23206     7853848                 1799.0
+filtered_feature_bc_matrix_Sample3 PSNP_mix_40_200   6157  21715     3978191                 2345.0
+filtered_feature_bc_matrix_Sample4         control   6516  21961     4273318                 2626.0
+
+QC filters (from config): min_genes=200, max_genes=7000, min_counts=500, max_mt%=15. Cells failing these criteria are removed before integration.
+
+------------------------------------------------------------------------
+  STEP 1 — QUALITY CONTROL (per sample)
+------------------------------------------------------------------------
+
+========================================================================
+  Finished: 2026-06-03 21:54:31
+========================================================================

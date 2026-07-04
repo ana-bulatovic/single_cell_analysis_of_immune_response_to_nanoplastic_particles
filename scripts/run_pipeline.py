@@ -150,6 +150,23 @@ FIGURE_DESCRIPTIONS = {
         "Answers whether nanoplastic exposure changes immune cell proportions "
         "(e.g. more monocytes, fewer T cells) relative to control."
     ),
+    "annotation_confusion_marker_codi.png": (
+        "Contingency matrix (cell counts): literature marker annotation vs CoDi "
+        "reference labels. Shows how each marker-based type maps to CoDi and "
+        "where the methods disagree."
+    ),
+    "annotation_confusion_marker_codi_normalized.png": (
+        "Row-normalized CoDi vs marker contingency matrix (% of each marker type). "
+        "Highlights the dominant CoDi label assigned to each marker-based cell type."
+    ),
+    "annotation_confusion_ref_codi.png": (
+        "Contingency matrix (cell counts): Seurat/ref.Rds primary annotation vs CoDi "
+        "reference labels. Shows how ref.Rds-assigned types map to CoDi."
+    ),
+    "annotation_confusion_ref_codi_normalized.png": (
+        "Row-normalized ref.Rds vs CoDi contingency matrix (% of each ref.Rds type). "
+        "Primary annotation cross-validation against external CoDi labels."
+    ),
 }
 
 
@@ -811,6 +828,456 @@ def plot_pathway_enrichment_figures(
     return saved
 
 
+PATHWAY_BIOLOGY_HINTS: List[tuple] = [
+    (
+        ("cytokine", "interleukin", "il-10", "il-17", "tnf", "inflammatory", "nf-kappa"),
+        {
+            "UP": (
+                "Higher expression of cytokine/inflammatory genes in exposed cells suggests "
+                "amplified innate and adaptive immune signalling — a plausible systemic "
+                "inflammatory response to particulate nanoplastic stress."
+            ),
+            "DOWN": (
+                "Reduced cytokine pathway activity vs control may reflect immune suppression, "
+                "cell exhaustion, or compensatory down-regulation after initial activation."
+            ),
+        },
+    ),
+    (
+        ("interferon", "antiviral", "isg", "defense response to virus"),
+        {
+            "UP": (
+                "Interferon/stress-response programmes are activated — consistent with "
+                "pattern-recognition receptor sensing of foreign particulate material."
+            ),
+            "DOWN": (
+                "Lower interferon signatures vs control indicate that IFN is not the dominant "
+                "exposure response in this cell type, or that other pathways supersede it."
+            ),
+        },
+    ),
+    (
+        ("apoptosis", "cell death", "p53", "necroptosis", "ferroptosis"),
+        {
+            "UP": (
+                "Up-regulated cell-death pathways may indicate cytotoxic stress from "
+                "nanoparticle uptake, oxidative damage, or activation of damage sensors."
+            ),
+            "DOWN": (
+                "Down-regulated death pathways could reflect survival signalling or "
+                "selection of stress-resistant subpopulations under PSNP exposure."
+            ),
+        },
+    ),
+    (
+        ("phagocyt", "fcgr", "complement", "neutrophil degranulation", "myeloid"),
+        {
+            "UP": (
+                "Enriched phagocytic/myeloid programmes align with particle uptake routes "
+                "and monocyte/macrophage engagement — especially relevant for larger (200 nm) PSNP."
+            ),
+            "DOWN": (
+                "Reduced phagocytic gene expression may indicate impaired clearance capacity "
+                "or shifted myeloid functional states under nanoplastic exposure."
+            ),
+        },
+    ),
+    (
+        ("oxidative", "reactive oxygen", "ros", "hypoxia", "mtor", "metabolism"),
+        {
+            "UP": (
+                "Metabolic and oxidative-stress pathways suggest cellular adaptation to "
+                "particle-induced ROS and energy demand during stress responses."
+            ),
+            "DOWN": (
+                "Down-regulated metabolic pathways may reflect functional impairment or "
+                "metabolic reprogramming away from homeostatic states."
+            ),
+        },
+    ),
+    (
+        ("adhesion", "focal adhesion", "ecm", "integrin", "migration", "chemokine"),
+        {
+            "UP": (
+                "Adhesion and migration programmes may promote immune-cell trafficking and "
+                "tissue homing — relevant for how circulating PBMC could respond upon "
+                "re-entering inflamed tissue after nanoplastic exposure."
+            ),
+            "DOWN": (
+                "Reduced adhesion/migration signalling could limit immune surveillance "
+                "or reflect altered cell–matrix interactions under stress."
+            ),
+        },
+    ),
+    (
+        ("antigen", "mhc", "hla", "presentation", "t cell receptor"),
+        {
+            "UP": (
+                "Enhanced antigen-presentation pathways support adaptive immune activation "
+                "and could influence T-cell priming after particulate exposure."
+            ),
+            "DOWN": (
+                "Lower antigen-presentation activity may reduce adaptive immune engagement "
+                "and impair effective immune surveillance."
+            ),
+        },
+    ),
+]
+
+
+def _pathway_biology_note(term: str, direction: str) -> str:
+    """Return a short biological note for a pathway term and regulation direction."""
+    text = str(term).lower()
+    direction = str(direction).upper()
+    for keywords, notes in PATHWAY_BIOLOGY_HINTS:
+        if any(kw in text for kw in keywords):
+            return notes.get(direction, notes.get("UP", ""))
+    if direction == "UP":
+        return (
+            "Genes in this pathway are higher in the exposed condition than in control — "
+            "may contribute to nanoplastic-induced transcriptional reprogramming in PBMC."
+        )
+    return (
+        "Genes in this pathway are lower in the exposed condition than in control — "
+        "may reflect suppression or redistribution of this programme under PSNP stress."
+    )
+
+
+def export_pathway_enrichment_summary(
+    enr_all: pd.DataFrame, cfg: Dict, paths: Dict[str, Path], log: PipelineLogger
+) -> pd.DataFrame:
+    """Export a readable table of enriched pathways with UP/DOWN direction vs control."""
+    if enr_all.empty:
+        log.log("  Skipped pathway summary (no enrichment table)")
+        return pd.DataFrame()
+
+    plot_cfg = cfg.get("pathway_plots", {})
+    fdr_thr = float(plot_cfg.get("fdr_threshold", 0.05))
+    top_n = int(plot_cfg.get("top_terms", 20))
+    fdr_col = "Adjusted P-value"
+    comp_labels = {comp: label for comp, label in EXPOSURE_COMPARISONS}
+
+    enr = enr_all.copy()
+    if "direction" not in enr.columns:
+        enr["direction"] = "UP"
+    enr = enr[enr[fdr_col] < fdr_thr].copy()
+    if enr.empty:
+        log.log("  Skipped pathway summary (no terms pass FDR threshold)")
+        return pd.DataFrame()
+
+    rows: List[Dict] = []
+    for (ctype, comp, direction), sub in enr.groupby(
+        ["cell_type", "comparison", "direction"], observed=False
+    ):
+        ranked = (
+            sub.sort_values(fdr_col)
+            .drop_duplicates(subset=["Term"], keep="first")
+            .head(top_n)
+        )
+        for _, r in ranked.iterrows():
+            term = str(r["Term"])
+            rows.append(
+                {
+                    "cell_type": ctype,
+                    "comparison": comp,
+                    "exposure": comp_labels.get(comp, comp),
+                    "direction": direction,
+                    "regulation_vs_control": (
+                        "UP in exposure (higher than control)"
+                        if direction == "UP"
+                        else "DOWN in exposure (lower than control)"
+                    ),
+                    "gene_set": r.get("gene_set", ""),
+                    "pathway": term,
+                    "adjusted_p_value": r[fdr_col],
+                    "overlap": r.get("Overlap", ""),
+                    "genes": r.get("Genes", ""),
+                    "biological_note": _pathway_biology_note(term, direction),
+                }
+            )
+
+    summary = pd.DataFrame(rows)
+    out = paths["results"] / "tables" / "pathway_enrichment_summary.csv"
+    summary.to_csv(out, index=False)
+    log.log(f"  Saved: {out.name} ({len(summary):,} rows, UP + DOWN vs control)")
+    return summary
+
+
+def write_pathway_enrichment_interpretation(
+    summary: pd.DataFrame,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+    *,
+    top_n_per_group: int = 5,
+    cfg: Optional[Dict] = None,
+) -> Optional[Path]:
+    """Write an English report linking enriched pathways to direction and tissue-level impact."""
+    if summary is None or summary.empty:
+        log.log("  Skipped pathway interpretation (empty summary)")
+        return None
+
+    deliverables = paths["project_root"] / "deliverables"
+    deliverables.mkdir(parents=True, exist_ok=True)
+    out = deliverables / "Pathway_Enrichment_Interpretation_EN.md"
+
+    lines = [
+        "# Pathway Enrichment — Direction and Biological Interpretation",
+        "",
+        "**Project:** Single-Cell Analysis of Immune Response to Nanoplastic Particles",
+        "**Source table:** `results/tables/pathway_enrichment_summary.csv`",
+        "**Figures:** `results/figures/pathway_enrichment/pathways_{cell_type}_{UP|DOWN}.png`",
+        "",
+        "---",
+        "",
+        "## 1. How to read these results",
+        "",
+        "Differential expression (Wilcoxon) compares each PSNP exposure to **untreated control** "
+        "within the same cell type. Pathway enrichment (Enrichr: GO, KEGG, Reactome) is run "
+        "separately on:",
+        "",
+        "| Direction | Input genes | Meaning vs control |",
+        "|-----------|-------------|-------------------|",
+        "| **UP** | Significant DE genes with log2FC > threshold | Pathway genes are **higher** "
+        "in the exposed condition — activation or induction. |",
+        "| **DOWN** | Significant DE genes with log2FC < −threshold | Pathway genes are **lower** "
+        "in the exposed condition — suppression or loss of programme. |",
+        "",
+        "Each row in the summary table lists one enriched pathway for a given "
+        "**cell type × exposure × direction** combination.",
+        "",
+        "---",
+        "",
+        "## 2. Linking pathways to nanoplastic tissue/organism effects",
+        "",
+        "PBMC are circulating immune cells; their transcriptional state reflects how the "
+        "immune system senses nanoplastics **in blood**. Enriched pathways can be connected "
+        "to potential organism-level consequences as follows:",
+        "",
+        "- **UP cytokine / TNF / IL signalling** → systemic inflammatory tone; may correlate "
+        "with fever, fatigue, or tissue inflammation if activated cells traffic to organs.",
+        "- **UP phagocytosis / myeloid programmes** → particle uptake and innate clearance "
+        "attempts; larger PSNP (200 nm) often engage monocyte/macrophage routes.",
+        "- **UP oxidative stress / metabolism** → cellular damage and energy reallocation; "
+        "relevant for vascular endothelium and organ toxicity hypotheses.",
+        "- **DOWN antigen presentation / HLA** → reduced capacity to activate adaptive immunity; "
+        "may impair effective immune surveillance.",
+        "- **DOWN interferon** → if IFN pathways are suppressed while inflammatory genes rise, "
+        "the response may be skewed toward myeloid rather than antiviral programmes.",
+        "",
+        "---",
+        "",
+        "## 3. Top enriched pathways by cell type and exposure",
+        "",
+    ]
+
+    top_per_group = top_n_per_group
+    cfg = cfg or load_config()
+    for ctype in sorted(summary["cell_type"].unique()):
+        lines.append(f"### {str(ctype).replace('_', ' ')}")
+        lines.append("")
+        sub_ct = summary[summary["cell_type"] == ctype]
+        for comp in [c for c, _ in EXPOSURE_COMPARISONS]:
+            sub_comp = sub_ct[sub_ct["comparison"] == comp]
+            if sub_comp.empty:
+                continue
+            exposure = dict(EXPOSURE_COMPARISONS).get(comp, comp)
+            lines.append(f"#### {exposure} vs control")
+            lines.append("")
+            for direction in ("UP", "DOWN"):
+                sub_dir = sub_comp[sub_comp["direction"] == direction].head(top_per_group)
+                if sub_dir.empty:
+                    continue
+                lines.append(f"**{direction}-regulated pathways**")
+                lines.append("")
+                for _, row in sub_dir.iterrows():
+                    padj = row["adjusted_p_value"]
+                    padj_s = f"{padj:.2e}" if pd.notna(padj) else "n/a"
+                    gs = GENE_SET_PREFIX.get(str(row.get("gene_set", "")), "")
+                    pathway_label = str(row["pathway"])
+                    if gs and not pathway_label.upper().startswith(gs.upper()):
+                        pathway_label = f"{gs} | {pathway_label}"
+                    lines.append(f"- **{pathway_label}** (padj = {padj_s})")
+                    lines.append(f"  - {row['biological_note']}")
+                lines.append("")
+
+    lines.extend(
+        [
+            "---",
+            "",
+            "## 4. Full tabular export",
+            "",
+            "See `results/tables/pathway_enrichment_summary.csv` for all significant pathways "
+            f"(top {int(cfg.get('pathway_plots', {}).get('top_terms', 20))} per "
+            "cell type × comparison × direction) with gene overlap and biological notes.",
+            "",
+            "Raw Enrichr output: `results/tables/pathway_enrichment_all.csv` (includes "
+            "`direction` column: UP or DOWN).",
+            "",
+        ]
+    )
+
+    out.write_text("\n".join(lines), encoding="utf-8")
+    log.log(f"  Saved: {out}")
+    return out
+
+
+def _plot_annotation_crosstab_heatmap(
+    ctab: pd.DataFrame,
+    *,
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    out_path: Path,
+    normalize_rows: bool = False,
+    cbar_label: str = "Cell count",
+) -> None:
+    """Plot a contingency matrix as a heatmap (counts or row-normalized %)."""
+    plot_df = ctab.copy()
+    for label in ("All", "Total"):
+        if label in plot_df.index:
+            plot_df = plot_df.drop(index=label)
+        if label in plot_df.columns:
+            plot_df = plot_df.drop(columns=label)
+
+    if plot_df.empty:
+        return
+
+    if normalize_rows:
+        row_sums = plot_df.sum(axis=1).replace(0, np.nan)
+        plot_df = plot_df.div(row_sums, axis=0) * 100.0
+        plot_df = plot_df.fillna(0.0)
+        fmt = ".1f"
+        cbar_label = "% of marker-based type"
+    else:
+        fmt = ".0f"
+
+    fig_w = max(8.0, 0.55 * plot_df.shape[1] + 3.0)
+    fig_h = max(5.0, 0.45 * plot_df.shape[0] + 2.0)
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    sns.heatmap(
+        plot_df,
+        ax=ax,
+        cmap="Blues",
+        linewidths=0.3,
+        linecolor="white",
+        annot=True,
+        fmt=fmt,
+        cbar_kws={"label": cbar_label, "shrink": 0.75},
+    )
+    ax.set_title(title, fontsize=11)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    plt.tight_layout()
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _export_codi_marker_crosstabs(
+    marker: pd.Series,
+    codi: pd.Series,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> pd.DataFrame:
+    """Save CoDi vs marker contingency tables (counts, row %, long format)."""
+    valid = codi.astype(str) != "NA"
+    marker_v = marker[valid].astype(str)
+    codi_v = codi[valid].astype(str)
+
+    ctab = pd.crosstab(marker_v, codi_v, margins=True)
+    ctab.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_codi.csv")
+    log.log("  Saved: annotation_crosstab_marker_codi.csv")
+
+    ctab_no_margin = pd.crosstab(marker_v, codi_v, margins=False)
+    row_pct = ctab_no_margin.div(ctab_no_margin.sum(axis=1).replace(0, np.nan), axis=0) * 100.0
+    row_pct = row_pct.fillna(0.0)
+    row_pct.to_csv(
+        paths["results"] / "tables" / "annotation_crosstab_marker_codi_row_pct.csv"
+    )
+    log.log("  Saved: annotation_crosstab_marker_codi_row_pct.csv")
+
+    long_rows: List[Dict] = []
+    for m_type in ctab_no_margin.index:
+        row_total = int(ctab_no_margin.loc[m_type].sum())
+        for c_type in ctab_no_margin.columns:
+            n = int(ctab_no_margin.loc[m_type, c_type])
+            if n == 0:
+                continue
+            long_rows.append(
+                {
+                    "marker_cell_type": m_type,
+                    "codi_cell_type": c_type,
+                    "n_cells": n,
+                    "pct_of_marker_row": round(100.0 * n / row_total, 2) if row_total else 0.0,
+                    "pct_of_all_mapped": round(
+                        100.0 * n / len(marker_v), 2
+                    ),
+                }
+            )
+    mapping = pd.DataFrame(long_rows).sort_values(
+        ["marker_cell_type", "n_cells"], ascending=[True, False]
+    )
+    mapping.to_csv(
+        paths["results"] / "tables" / "annotation_codi_marker_mapping.csv", index=False
+    )
+    log.log(f"  Saved: annotation_codi_marker_mapping.csv ({len(mapping)} pairs)")
+    return ctab_no_margin
+
+
+def _export_codi_ref_crosstabs(
+    ref: pd.Series,
+    codi: pd.Series,
+    paths: Dict[str, Path],
+    log: PipelineLogger,
+) -> pd.DataFrame:
+    """Save CoDi vs ref.Rds/Seurat contingency tables (counts, row %, long format)."""
+    ref_s = ref.astype(str)
+    codi_s = codi.astype(str)
+    valid = (codi_s != "NA") & (ref_s != "NA") & (ref_s != "unmapped")
+    ref_v = ref_s[valid]
+    codi_v = codi_s[valid]
+
+    if ref_v.empty:
+        log.log("  Skipped ref vs CoDi crosstabs (no mapped ref.Rds + CoDi cells)")
+        return pd.DataFrame()
+
+    ctab = pd.crosstab(ref_v, codi_v, margins=True)
+    ctab.to_csv(paths["results"] / "tables" / "annotation_crosstab_ref_codi.csv")
+    log.log("  Saved: annotation_crosstab_ref_codi.csv")
+
+    ctab_no_margin = pd.crosstab(ref_v, codi_v, margins=False)
+    row_pct = ctab_no_margin.div(ctab_no_margin.sum(axis=1).replace(0, np.nan), axis=0) * 100.0
+    row_pct = row_pct.fillna(0.0)
+    row_pct.to_csv(
+        paths["results"] / "tables" / "annotation_crosstab_ref_codi_row_pct.csv"
+    )
+    log.log("  Saved: annotation_crosstab_ref_codi_row_pct.csv")
+
+    long_rows: List[Dict] = []
+    for r_type in ctab_no_margin.index:
+        row_total = int(ctab_no_margin.loc[r_type].sum())
+        for c_type in ctab_no_margin.columns:
+            n = int(ctab_no_margin.loc[r_type, c_type])
+            if n == 0:
+                continue
+            long_rows.append(
+                {
+                    "ref_cell_type": r_type,
+                    "codi_cell_type": c_type,
+                    "n_cells": n,
+                    "pct_of_ref_row": round(100.0 * n / row_total, 2) if row_total else 0.0,
+                    "pct_of_all_mapped": round(100.0 * n / len(ref_v), 2),
+                }
+            )
+    mapping = pd.DataFrame(long_rows).sort_values(
+        ["ref_cell_type", "n_cells"], ascending=[True, False]
+    )
+    mapping.to_csv(
+        paths["results"] / "tables" / "annotation_codi_ref_mapping.csv", index=False
+    )
+    log.log(f"  Saved: annotation_codi_ref_mapping.csv ({len(mapping)} pairs)")
+    return ctab_no_margin
+
+
 SIZE_EFFECT_CLASSES = (
     "unique_40nm",
     "unique_200nm",
@@ -1231,9 +1698,17 @@ def _export_annotation_agreement(
         ctab_ref.to_csv(paths["results"] / "tables" / "annotation_crosstab_ref_marker.csv")
         log.log("  Saved: annotation_crosstab_ref_marker.csv")
 
-    ctab_codi = pd.crosstab(marker, codi, margins=True)
-    ctab_codi.to_csv(paths["results"] / "tables" / "annotation_crosstab_marker_codi.csv")
-    log.log("  Saved: annotation_crosstab_marker_codi.csv")
+    ctab_codi = _export_codi_marker_crosstabs(marker, codi, paths, log)
+
+    if "cell_type_ref" in adata.obs.columns:
+        ref_for_codi = adata.obs["cell_type_ref"].astype(str)
+    elif "cell_type_seurat" in adata.obs.columns:
+        ref_for_codi = adata.obs["cell_type_seurat"].astype(str)
+    else:
+        ref_for_codi = None
+
+    if ref_for_codi is not None:
+        _export_codi_ref_crosstabs(ref_for_codi, codi, paths, log)
 
     metrics = pd.DataFrame(rows)
     metrics.to_csv(paths["results"] / "tables" / "annotation_agreement_metrics.csv", index=False)
@@ -1373,6 +1848,16 @@ def write_additional_analyses_interpretation(
                 "- ~45–65% je tipično za PBMC sa više anotacionih šema.",
                 "- Azimuth mean score > 0.85 = visoko poverenje u referentno mapiranje.",
                 "",
+                "**Contingency matrix (CoDi vs markeri):**",
+                "- `annotation_crosstab_marker_codi.csv` — broj ćelija po paru tipova",
+                "- `annotation_crosstab_marker_codi_row_pct.csv` — % unutar svakog marker tipa",
+                "- `annotation_codi_marker_mapping.csv` — long format (marker → CoDi mapiranje)",
+                "",
+                "**Contingency matrix (ref.Rds/Seurat vs CoDi):**",
+                "- `annotation_crosstab_ref_codi.csv` — broj ćelija po paru tipova",
+                "- `annotation_crosstab_ref_codi_row_pct.csv` — % unutar svakog ref.Rds tipa",
+                "- `annotation_codi_ref_mapping.csv` — long format (ref.Rds → CoDi mapiranje)",
+                "",
             ]
         )
 
@@ -1384,6 +1869,10 @@ def write_additional_analyses_interpretation(
             "- `results/figures/additional_analyses/module_scores_violin.png` — raspodela po uslovu",
             "- `results/figures/additional_analyses/antigen_presentation_heatmap.png`",
             "- `results/figures/additional_analyses/annotation_agreement_bar.png`",
+            "- `results/figures/additional_analyses/annotation_confusion_marker_codi.png` — CoDi vs markeri",
+            "- `results/figures/additional_analyses/annotation_confusion_marker_codi_normalized.png`",
+            "- `results/figures/additional_analyses/annotation_confusion_ref_codi.png` — ref.Rds vs CoDi",
+            "- `results/figures/additional_analyses/annotation_confusion_ref_codi_normalized.png`",
             "- `results/figures/additional_analyses/annotation_confusion_marker_azimuth.png` (ako postoji Azimuth)",
             "",
         ]
@@ -1511,6 +2000,62 @@ def plot_additional_analysis_figures(
         fig.savefig(p, dpi=200, bbox_inches="tight")
         plt.close(fig)
         saved.append(p)
+
+    codi = adata.obs.get("cell_type_codi_norm", pd.Series("NA", index=adata.obs_names)).astype(str)
+    valid_codi = codi != "NA"
+    if valid_codi.any():
+        ctab_codi = pd.crosstab(
+            adata.obs.loc[valid_codi, "cell_type_marker"].astype(str),
+            codi[valid_codi],
+        )
+        if not ctab_codi.empty:
+            _plot_annotation_crosstab_heatmap(
+                ctab_codi,
+                title="Contingency matrix: marker genes vs CoDi annotation",
+                xlabel="CoDi cell type",
+                ylabel="Marker-based cell type",
+                out_path=fig_dir / "annotation_confusion_marker_codi.png",
+            )
+            saved.append(fig_dir / "annotation_confusion_marker_codi.png")
+            _plot_annotation_crosstab_heatmap(
+                ctab_codi,
+                title="Marker vs CoDi (% of each marker-based type)",
+                xlabel="CoDi cell type",
+                ylabel="Marker-based cell type",
+                out_path=fig_dir / "annotation_confusion_marker_codi_normalized.png",
+                normalize_rows=True,
+            )
+            saved.append(fig_dir / "annotation_confusion_marker_codi_normalized.png")
+
+    ref_col: Optional[str] = None
+    if "cell_type_ref" in adata.obs.columns:
+        ref_col = "cell_type_ref"
+    elif "cell_type_seurat" in adata.obs.columns:
+        ref_col = "cell_type_seurat"
+
+    if ref_col is not None and valid_codi.any():
+        ref_s = adata.obs[ref_col].astype(str)
+        plot_mask = valid_codi & (ref_s != "unmapped") & (ref_s != "NA")
+        if plot_mask.any():
+            ctab_ref_codi = pd.crosstab(ref_s[plot_mask], codi[plot_mask])
+            if not ctab_ref_codi.empty:
+                _plot_annotation_crosstab_heatmap(
+                    ctab_ref_codi,
+                    title="Contingency matrix: ref.Rds/Seurat vs CoDi annotation",
+                    xlabel="CoDi cell type",
+                    ylabel="Seurat/ref.Rds cell type",
+                    out_path=fig_dir / "annotation_confusion_ref_codi.png",
+                )
+                saved.append(fig_dir / "annotation_confusion_ref_codi.png")
+                _plot_annotation_crosstab_heatmap(
+                    ctab_ref_codi,
+                    title="ref.Rds/Seurat vs CoDi (% of each ref.Rds type)",
+                    xlabel="CoDi cell type",
+                    ylabel="Seurat/ref.Rds cell type",
+                    out_path=fig_dir / "annotation_confusion_ref_codi_normalized.png",
+                    normalize_rows=True,
+                )
+                saved.append(fig_dir / "annotation_confusion_ref_codi_normalized.png")
 
     if "azimuth_l1" in adata.obs.columns:
         ct = pd.crosstab(
@@ -1852,6 +2397,10 @@ def explain_tables(log: PipelineLogger) -> None:
             "Enrichr hits (GO/KEGG/Reactome) for significant UP and DOWN DE genes; "
             "includes direction column. Figures in results/figures/pathway_enrichment/."
         ),
+        "pathway_enrichment_summary.csv": (
+            "Top enriched pathways per cell type x exposure x direction (UP/DOWN vs control) "
+            "with biological interpretation notes."
+        ),
         "size_specific_effects_summary.csv": (
             "Counts of DE genes unique to 40 nm, 200 nm, shared, or mix-only effects."
         ),
@@ -1886,7 +2435,22 @@ def explain_tables(log: PipelineLogger) -> None:
             "CoDi/marker/Azimuth agreement fractions and mean Azimuth score."
         ),
         "annotation_crosstab_marker_codi.csv": (
-            "Cell counts: marker-based type vs normalized CoDi label."
+            "Contingency matrix: cell counts for marker-based type vs normalized CoDi label."
+        ),
+        "annotation_crosstab_marker_codi_row_pct.csv": (
+            "Row-normalized CoDi vs marker matrix (% of each marker type)."
+        ),
+        "annotation_codi_marker_mapping.csv": (
+            "Long-format CoDi vs marker mapping with counts and row percentages."
+        ),
+        "annotation_crosstab_ref_codi.csv": (
+            "Contingency matrix: Seurat/ref.Rds cell type vs normalized CoDi label."
+        ),
+        "annotation_crosstab_ref_codi_row_pct.csv": (
+            "Row-normalized ref.Rds vs CoDi matrix (% of each ref.Rds type)."
+        ),
+        "annotation_codi_ref_mapping.csv": (
+            "Long-format ref.Rds vs CoDi mapping with counts and row percentages."
         ),
         "annotation_crosstab_marker_azimuth.csv": (
             "Cell counts: marker-based type vs Azimuth L1 label."
@@ -1971,6 +2535,8 @@ def main():
         log.section("STEP 7 - PATHWAY ENRICHMENT")
         enr_all = pathway_enrichment(de_all, cfg, paths, log)
         plot_pathway_enrichment_figures(enr_all, cfg, paths, log)
+        pathway_summary = export_pathway_enrichment_summary(enr_all, cfg, paths, log)
+        write_pathway_enrichment_interpretation(pathway_summary, paths, log, cfg=cfg)
 
         log.section("STEP 8 - SIZE-SPECIFIC EFFECTS")
         size_specific_effects(de_all, cfg, paths, log)

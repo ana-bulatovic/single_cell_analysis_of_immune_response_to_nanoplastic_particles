@@ -1,0 +1,32 @@
+
+========================================================================
+  SINGLE-CELL PIPELINE - RUN LOG
+  Started: 2026-06-15 15:20:23
+  Log file: C:\Users\ANA\Desktop\Faks\Master\GI\Projekat\single_cell_analysis_of_immune_response_to_nanoplastic_particles\results\run_logs\pipeline_run_20260615_152023.txt
+========================================================================
+
+------------------------------------------------------------------------
+  PATHWAY ENRICHMENT FIGURES ONLY
+------------------------------------------------------------------------
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_B_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD4_T_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_CD8_T_cytotoxic_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_DC_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD14_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD16_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Monocyte_CD16_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_NK_cell_UP.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_DOWN.png
+  Saved pathway figure: results\figures\pathway_enrichment\pathways_Platelet_UP.png
+  Pathway enrichment figures: 16 saved under results\figures\pathway_enrichment
+  Done. 16 figure(s) written.
+
+========================================================================
+  Finished: 2026-06-15 15:20:43
+========================================================================

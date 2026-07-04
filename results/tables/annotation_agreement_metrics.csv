@@ -1,0 +1,9 @@
+metric,value,description
+ref_marker_agreement,0.4543622141997593,Fraction of cells where ref.Rds primary label matches literature markers
+codi_marker_agreement,0.6295136778115501,Fraction of CoDi-mapped cells with same label as literature markers
+codi_ref_agreement,0.5985410334346505,Fraction of CoDi-mapped cells with same label as ref.Rds primary
+codi_mapped_fraction,0.9897713598074609,Fraction of cells with a CoDi reference label
+azimuth_marker_agreement,0.455956678700361,Fraction of Azimuth-mapped cells matching marker annotation (L1 mapped)
+azimuth_marker_agreement_score_ge_0.5,0.45780539557441646,"Same as above, only cells with Azimuth score >= 0.5"
+codi_azimuth_agreement,0.5999392097264438,Fraction where CoDi normalized label matches Azimuth L1 mapped label
+azimuth_mean_score,0.9082289829218041,Mean Azimuth prediction score across all cells
