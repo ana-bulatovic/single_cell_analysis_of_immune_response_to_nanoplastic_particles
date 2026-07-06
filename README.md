@@ -2,7 +2,7 @@
 
 Reproducible single-cell RNA-seq (scRNA-seq) workflow for studying how human peripheral blood mononuclear cells (PBMC) respond to carboxylated polystyrene nanoparticles (PSNP) of different sizes.
 
-**Data:** [Zenodo 15866724](https://zenodo.org/records/15866724) · **Reference atlas:** [Zenodo 4546839](https://zenodo.org/records/4546839) (`ref.Rds`)
+**Data:** [Zenodo 15866724](https://zenodo.org/records/15866724) · **Reference atlas:** [Zenodo 4546839](https://zenodo.org/records/4546839) (`ref.Rds`) · **Video presentation:** [YouTube](https://www.youtube.com/watch?v=Hp5CHrxC4sM)
 
 ---
 
