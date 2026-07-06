@@ -1,0 +1,546 @@
+================================================================================
+  VODIČ ZA ODBRANU — Single-cell analiza imunskog odgovora na nanoplastiku
+  Projekat: PBMC + polistiren nanoplastika (PSNP) 40 nm / 200 nm / mix / control
+  Repozitorijum: single_cell_analysis_of_immune_response_to_nanoplastic_particles
+================================================================================
+
+Ovaj fajl objašnjava REDOM šta radi kod, čemu služi svaki korak, i gde su
+tabele/slike. Koristi ga kao skriptu za razgovor sa profesorom.
+
+
+================================================================================
+0. ŠTA JE BIOLOŠKI EKSPERIMENT
+================================================================================
+
+Podaci: single-cell RNA-seq (scRNA-seq) PBMC (periferna krv, jedan donor).
+Svaki uzorak = jedan uslov (nema više bioloških replika po uslovu unutar donor-a).
+
+Uslovi (4):
+  - control              — neizložen kontrolni uzorak
+  - PSNP_40nm            — 40 nm karboxilovana polistiren nanoplastika
+  - PSNP_200nm           — 200 nm
+  - PSNP_mix_40_200      — mešavina 40 + 200 nm
+
+Izvor podataka: Zenodo 15866724
+Referentni atlas ćelija: ref.Rds sa Zenodo 4546839 (Azimuth/Seurat PBMC referenca)
+
+Glavno pitanje projekta:
+  Kako različite veličine nanoplastike menjaju transkriptom imunskih ćelija,
+  koje puteve obogaćuju (UP/DOWN vs control), i da li mix daje poseban (emergentni)
+  odgovor koji nije zbir solo izloženosti?
+
+
+================================================================================
+1. STRUKTURA PROJEKTA I KAKO SE POKREĆE
+================================================================================
+
+config/config.yaml     — svi parametri (QC, integracija, DE pragovi, markeri)
+data/raw/              — preuzeti .h5ad, CoDi CSV, ref.Rds
+data/processed/        — integrated_pre_hvg.h5ad, integrated_annotated.h5ad
+results/tables/        — CSV tabele
+results/figures/       — PNG slike
+results/run_logs/      — log svakog pokretanja pipeline-a
+scripts/               — Python i R skripte
+deliverables/          — prezentacija, ovaj vodič
+
+Red pokretanja (minimum):
+  1) python scripts/download_data.py
+  2) python scripts/run_pipeline.py          ← glavna analiza (STEP 0–10)
+  3) python scripts/plot_supplementary_figures.py   ← volcano, size-specific figure
+  (opciono) python scripts/run_additional_analyses.py  ← samo STEP 9 ponovo
+
+Za punu Seurat/ref.Rds anotaciju (pre koraka 2, drugi put):
+  python scripts/prepare_azimuth_h5ad.py
+  Rscript scripts/azimuth_annotation.R
+  python scripts/run_pipeline.py
+
+
+================================================================================
+2. GLAVNI PIPELINE — STEP 0 do STEP 10 (run_pipeline.py)
+================================================================================
+
+------------------------------------------------------------------------
+STEP 0 — PREGLED SIROVIH PODATAKA
+------------------------------------------------------------------------
+Šta radi:
+  Učitava 4 .h5ad fajla (10x filtered matrix), prikazuje broj ćelija/gena/UMI
+  po uzorku pre QC.
+
+Zašto:
+  Da potvrdiš da su svi uzorci učitani i da razmere podataka imaju smisla.
+
+Ulaz:
+  data/raw/filtered_feature_bc_matrix*.h5ad
+
+Izlaz:
+  Samo log u results/run_logs/
+
+
+------------------------------------------------------------------------
+STEP 1 — QUALITY CONTROL (QC) po uzorku
+------------------------------------------------------------------------
+Šta radi:
+  Za svaku ćeliju računa QC metrike (broj gena, UMI, % mitohondrijskih gena).
+  Filtrira ćelije prema config.yaml:
+    min_genes=200, max_genes=7000, min_counts=500, max_mt_percent=15%
+  Dodaje kolone: sample_id, condition.
+  Spaja 4 uzorka u jedan AnnData objekat (inner join na genima).
+
+Zašto:
+  Uklanja loše kvalitetne ćelije (prazne, dvostruke, umiruće) pre analize.
+
+Šta reći profesoru:
+  "Prvo filtriramo ćelije standardnim QC kriterijumima za scRNA-seq, pa spajamo
+   sva četiri uzorka u jedan integrisani objekat."
+
+Izlaz:
+  Spojeni objekat u memoriji (još nije finalni .h5ad)
+
+
+------------------------------------------------------------------------
+STEP 2 — NORMALIZACIJA, INTEGRACIJA, UMAP, KLASTERIZACIJA
+------------------------------------------------------------------------
+Šta radi (redom):
+  a) Normalizacija na 10 000 UMI po ćeliji + log1p transformacija
+  b) MODULE SCORES na PUNOM transkriptomu (pre HVG):
+       - S_score, G2M_score (cell cycle)
+       - IFN_score (interferon stimulisani geni: ISG15, IFIT1, MX1...)
+       - antigen_presentation_score (HLA-DR, CD74, B2M, TAP...)
+  c) Čuva integrated_pre_hvg.h5ad (za Azimuth/R mapiranje)
+  d) Bira 3000 highly variable gena (HVG, Seurat flavor, batch_key=sample_id)
+  e) Skaliranje (max_value=10)
+  f) PCA (30 komponenti)
+  g) BATCH KOREKCIJA: Combat po sample_id (uklanja tehničke razlike između uzoraka)
+  h) UMAP embedding + Leiden klasterizacija (resolution=0.5)
+
+Zašto:
+  - Integracija (Combat) omogućava poređenje uslova bez artefakta "svaki uzorak
+    u svom ostrvu" na UMAP-u.
+  - HVG smanjuje dimenzionalnost — DE se radi na 3000 gena (ograničenje!).
+  - Module scores se računaju RANIJE jer koriste pun genom.
+
+Šta reći profesoru:
+  "Normalizujemo i integrišemo četiri uzorka Combat-om, vizualizujemo UMAP-om,
+   a module score programe (IFN, antigen presentation, cell cycle) računamo na
+   celom transkriptomu pre filtriranja na HVG."
+
+Tabele (STEP 9 ih agregira, ali scores se ovde računaju):
+  results/tables/module_scores_by_condition.csv
+  results/tables/module_scores_by_condition_celltype.csv
+  results/tables/cell_cycle_scores_by_condition.csv
+  results/tables/ifn_scores_by_condition.csv
+  results/tables/antigen_presentation_scores.csv
+
+Slike (STEP 4):
+  results/figures/umap_condition.png
+  results/figures/umap_clusters.png
+  results/figures/umap_sample_integration.png
+  results/figures/umap_split_by_condition.png
+  results/figures/umap_module_scores.png
+
+Napomena za prezentaciju:
+  umap_sample_integration ≈ umap_condition jer je 1 uzorak = 1 uslov.
+  Za slajd dovoljan je umap_condition.png.
+
+
+------------------------------------------------------------------------
+STEP 3 — ANOTACIJA TIPOVA ĆELIJA
+------------------------------------------------------------------------
+Šta radi:
+  Više metoda paralelno; primarna anotacija ide u cell_type_primary.
+
+  1) LITERATURNI MARKERI (validacija):
+     Za svaku ćeliju računa prosečnu ekspresiju marker panela iz config.yaml
+     (CD3D za T, MS4A1 za B, LYZ/S100A8 za Monocyte_CD14, itd.)
+     → cell_type_marker
+
+  2) CoDi ETIKETE (spoljašnja referenca iz dataseta):
+     Učitava CoDi CSV sa Zenodo → cell_type_codi_norm
+
+  3) Seurat/Azimuth + ref.Rds (primarna metoda, config: primary_method=seurat):
+     R skripta azimuth_annotation.R mapira ćelije na PBMC atlas
+     → cell_type_ref / cell_type_seurat
+     Mean Azimuth score ≈ 0.91 (visoko poverenje)
+
+  4) Opciono: Tangram, cell2location (isključeno u config-u)
+
+  5) assign_primary_cell_type → cell_type_primary (koristi se u DE i kompoziciji)
+
+  6) VALIDACIJA: contingency matrice i agreement metrike
+
+Zašto:
+  Tip ćelije mora biti pouzdan pre DE — inače mešamo T, B i monocite u istom testu.
+  Više metoda = cross-validacija (profesor je tražio CoDi vs marker matricu).
+
+Šta reći profesoru:
+  "Primarna anotacija je ref.Rds/Seurat atlas. Marker paneli i CoDi koristimo za
+   validaciju. Slaganje ref vs CoDi je ~60%, marker vs CoDi ~63%."
+
+Tabele:
+  results/tables/annotation_agreement_metrics.csv
+  results/tables/annotation_crosstab_marker_codi.csv
+  results/tables/annotation_crosstab_marker_codi_row_pct.csv
+  results/tables/annotation_codi_marker_mapping.csv
+  results/tables/annotation_crosstab_ref_codi.csv          ← PREPORUČENO za slajd
+  results/tables/annotation_crosstab_ref_codi_row_pct.csv
+  results/tables/annotation_codi_ref_mapping.csv
+  results/tables/annotation_crosstab_marker_seurat.csv
+  results/tables/annotation_crosstab_ref_marker.csv
+  results/tables/annotation_method_agreement.csv
+  results/tables/azimuth_annotations.csv (ako je R pokrenut)
+
+Slike:
+  results/figures/umap_celltypes_seurat.png    ← primarna anotacija
+  results/figures/umap_celltypes_marker.png
+  results/figures/umap_codi_celltypes.png
+  results/figures/marker_dotplot.png
+  results/figures/annotation_validation/marker_validation_seurat_ref_rds.png
+  results/figures/annotation_validation/marker_validation_codi.png
+  results/figures/additional_analyses/annotation_confusion_ref_codi_normalized.png  ★
+  results/figures/additional_analyses/annotation_confusion_marker_codi_normalized.png
+  results/figures/additional_analyses/annotation_agreement_bar.png
+
+Napomena:
+  DC tip je retak (~3–17 ćelija po uslovu) — DE za DC je ograničen.
+  Marker panel za DC je proširen (CD1C, CLEC9A, ITGAX...) ali i dalje malo ćelija.
+
+
+------------------------------------------------------------------------
+STEP 4 — OSNOVNE UMAP SLIKE
+------------------------------------------------------------------------
+Šta radi:
+  Generiše glavne vizualizacije integrisanog objekta (vidi STEP 2 i 3).
+
+Za prezentaciju (minimum):
+  1) umap_condition.png — ćelije po uslovu
+  2) umap_celltypes_seurat.png — tipovi ćelija
+  3) marker_dotplot.png — validacija markera
+  4) composition_barplot.png (STEP 5, ali ide uz UMAP priču)
+
+
+------------------------------------------------------------------------
+STEP 5 — KOMPozicija ĆELIJA (cell type proportions)
+------------------------------------------------------------------------
+Šta radi:
+  Broji ćelije i udjele (fraction) svakog cell_type_primary po uslovu.
+
+Zašto:
+  Da vidimo da li nanoplastika menja ODNOS tipova ćelija (npr. više monocta).
+
+Ključni nalaz iz podataka:
+  - 200 nm: Monocyte_CD14 ~8.2% vs control ~3.2% (relativno više monocta)
+  - Mix: B ćelije ~10.2% vs control ~9.2%
+  - T ćelije (CD4/CD8) dominiraju u svim uslovima (~70–80%)
+
+Tabela:
+  results/tables/cell_composition_by_condition.csv
+
+Slike:
+  results/figures/composition_barplot.png
+  results/figures/supplementary/composition_delta_heatmap.png (Δ vs control)
+
+Šta reći:
+  "Kompozicija pokazuje blagi porast monocta kod 200 nm; transkriptomski odgovor
+   je ipak glavni signal u DE i pathway analizi."
+
+
+------------------------------------------------------------------------
+STEP 6 — DIFFERENCIJALNA EKSPRESIJA (DE)
+------------------------------------------------------------------------
+Šta radi:
+  Za svaki cell_type_primary (osim low_confidence):
+    Wilcoxon test: PSNP_40nm vs control
+                   PSNP_200nm vs control
+                   PSNP_mix vs control
+  Prag: padj < 0.05, |log2FC| > 0.25, min 20 ćelija po grupi
+
+Zašto:
+  Pronalazi gene koji se statistički razlikuju između izloženosti i kontrole,
+  ODVOJENO po tipu ćelije.
+
+Tabela:
+  results/tables/differential_expression_all.csv
+  (kolone: names, logfoldchanges, pvals_adj, cell_type, comparison)
+
+Slike (plot_supplementary_figures.py):
+  results/figures/supplementary/de/volcano_{cell_type}_{comparison}.png
+  results/figures/supplementary/de/top_de_heatmap_{cell_type}.png
+  results/figures/supplementary/de_summary_significant_genes.png
+
+Šta reći:
+  "DE radimo unutar svakog tipa ćelije posebno — ne mešamo B i monocyte signal.
+   Test je Wilcoxon na 3000 HVG gena."
+
+
+------------------------------------------------------------------------
+STEP 7 — PATHWAY ENRICHMENT vs CONTROL (UP / DOWN)  ★ PROFESOR STAVKA 3
+------------------------------------------------------------------------
+Šta radi:
+  1) Iz DE uzima značajne gene:
+       UP   = log2FC > 0.25  (viši u izloženosti nego control)
+       DOWN = log2FC < -0.25 (niži u izloženosti nego control)
+  2) Enrichr (GO Biological Process 2023, KEGG 2021, Reactome 2022)
+     na UP i DOWN listama ODVOJENO
+  3) Za svaki cell_type pravi heatmapu: putevi × (40 nm / 200 nm / mix)
+
+Zašto:
+  Direktno odgovara na: "koji putevi su enrichovani i da li su UP ili DOWN vs control"
+
+Tabele:
+  results/tables/pathway_enrichment_all.csv
+    → kolona direction: UP ili DOWN
+  results/tables/pathway_enrichment_summary.csv (top putevi + interpretacija)
+
+Slike (GRUPA 1 — glavna za profesora):
+  results/figures/pathway_enrichment/pathways_{cell_type}_UP.png
+  results/figures/pathway_enrichment/pathways_{cell_type}_DOWN.png
+
+  Najjači par za priču:
+    pathways_Monocyte_CD14_UP.png   → 40 nm jak inflamatorni/citokinski signal
+    pathways_Monocyte_CD14_DOWN.png  → 200 nm isti putevi DOWN (supresija)
+
+  Ostali tipovi:
+    B_cell_UP → dominira 200 nm (inflammatory response, IL-10, cytokine)
+    CD4_T_UP, NK_cell_UP → slično, 200 nm jači
+    B_cell_DOWN → 40 nm i mix snižavaju citokinske puteve
+
+Kako čitati heatmapu:
+  - X osa: 40 nm / 200 nm / mix (svaki vs control)
+  - Y osa: obogaćeni putevi (top 20 po značajnosti)
+  - Boja: -log10(adjusted p-value) — tamnije crveno = jači signal
+  - UP slika = geni povišeni u exposure; DOWN slika = geni sniženi
+
+Šta reći o KEGG "bolestima" (Malaria, Rheumatoid arthritis...):
+  "To su u Enrichr-u proxy moduli za citokinsko/inflamatorno obogaćenje,
+   ne doslovna dijagnoza bolesti."
+
+Uticaj na tkivo/organizam (primer formulacije):
+  "Kod monocta, 40 nm povećava citokinsku i inflamatornu signalizaciju (UP),
+   dok 200 nm isti programi idu DOWN — size-specific imunomodulacija PBMC.
+   Kod limfnih tipova (B, CD4 T, NK) jači UP signal za 200 nm ukazuje na
+   aktivaciju inflamatornih puteva koji mogu doprineti sistemskoj inflamatornoj
+   reakciji na nanoplastiku."
+
+
+------------------------------------------------------------------------
+STEP 8 — SIZE-SPECIFIC EFEKTI (moduli po veličini čestice)
+------------------------------------------------------------------------
+Šta radi:
+  Značajne DE gene (padj<0.05, |logFC|>0.25) klasifikuje u 5 klasa:
+
+  unique_40nm        — signifikantni SAMO u 40 nm vs control
+  unique_200nm       — signifikantni SAMO u 200 nm vs control
+  shared_40_200      — signifikantni u 40 nm I 200 nm, ali NE u mix
+  shared_all_three   — signifikantni u sva tri exposure-a (core PSNP modul)
+  mix_only_emergent  — signifikantni SAMO u mix (emergentni efekat)
+
+  Zatim Enrichr na UP genima unutar svake klase → size-specific pathway.
+
+Zašto:
+  Ne pita "40 vs control" direktno, već "koji geni/putevi pripadaju modulu
+  specifičnom za veličinu ili mix". Dopuna grupi 1, ne zamena.
+
+Tabele:
+  results/tables/size_specific_effects_summary.csv   — broj gena po klasi
+  results/tables/size_specific_genes.csv             — liste gena + logFC
+  results/tables/size_specific_pathway_enrichment.csv
+  results/tables/size_specific_interpretation.csv    — top geni, putevi, tekst ★
+
+Slike (GRUPA 2 — dopunska):
+  results/figures/supplementary/size_specific_counts_barplot.png
+  results/figures/supplementary/size_specific_counts_heatmap.png
+  results/figures/supplementary/size_specific_pathways/pathways_{cell_type}_{klasa}.png
+
+  Primer jakog nalaza:
+    Monocyte_CD14 shared_all_three: 973 gena
+      → IL-10 signaling, cytokine receptor, LPS response (core odgovor)
+    Monocyte_CD14 mix_only_emergent:
+      → Th17 differentiation, cell adhesion (samo u mix-u)
+
+Šta reći:
+  "Mix nije uvek zbir solo efekata — mix_only_emergent klasa pokazuje gene
+   koji se pojavljuju tek kad su obe veličine zajedno."
+
+
+------------------------------------------------------------------------
+STEP 9 — DODATNE ANALIZE
+------------------------------------------------------------------------
+Šta radi (additional_insights / run_additional_analyses.py):
+  a) Agregira module scores po uslovu i tipu ćelije
+  b) Pseudobulk: sabira UMI po condition × cell_type (za budući DESeq2/edgeR)
+  c) Contingency matrice i heatmape (CoDi vs marker, ref vs CoDi)
+  d) Piše additional_analyses_interpretation_SR.md
+
+Ključni nalazi module scores:
+  - IFN_score: blago snižen u sva tri exposure-a vs control
+  - antigen_presentation: snižen globalno; kod DC mix povećava skor
+  - G2M: snižen kod 200 nm
+
+Tabele: (već nabrojane u STEP 2 i 3)
+  results/tables/pseudobulk_counts_condition_celltype.csv  — samo export, nije analiziran
+
+Slike:
+  results/figures/additional_analyses/module_scores_by_condition.png
+  results/figures/additional_analyses/module_scores_violin.png
+  results/figures/additional_analyses/antigen_presentation_heatmap.png
+  (+ confusion heatmape iz STEP 3)
+
+Interpretacija na srpskom:
+  results/tables/additional_analyses_interpretation_SR.md
+
+
+------------------------------------------------------------------------
+STEP 10 — ČUVANJE PROCESIRANOG OBJEKTA
+------------------------------------------------------------------------
+Šta radi:
+  Čuva finalni AnnData sa svim metadata i embedding-ima.
+
+Izlaz:
+  data/processed/integrated_annotated.h5ad
+  (3000 HVG, svi obs kolone: condition, cell_type_primary, module scores...)
+
+
+================================================================================
+3. POMOĆNE SKRIPTE (van glavnog pipeline-a)
+================================================================================
+
+download_data.py
+  Preuzima podatke sa Zenodo u data/raw/
+
+prepare_azimuth_h5ad.py + azimuth_annotation.R
+  Priprema objekat i pokreće Seurat mapiranje na ref.Rds
+
+extract_azimuth_markers.py
+  Izvlači marker panele iz Azimuth rezultata
+
+run_additional_analyses.py
+  Ponovo pokreće STEP 9 bez celog pipeline-a
+  --refresh-markers: ažurira cell_type_marker posle izmene config.yaml
+
+plot_pathway_figures.py
+  Regeneriše pathway heatmape iz CSV; --enrich-missing dopunjuje DOWN
+
+plot_supplementary_figures.py
+  Volcano, DE heatmape, size-specific barplot/heatmap/pathway figure
+
+plot_figures.py
+  UMAP iz sačuvanog .h5ad
+
+make_slides.py
+  Automatski pravi deliverables/nanoplastic_scRNA_results.pptx
+
+
+================================================================================
+4. PREPORUČEN RED PRIČE PRED PROFESOROM (10–15 min)
+================================================================================
+
+SLAJD 1 — Eksperiment i podaci
+  "PBMC, 4 uslova: control, 40 nm, 200 nm, mix. scRNA-seq, Zenodo 15866724.
+   Jedan donor — rezultati su deskriptivni unutar uzorka."
+
+SLAJD 2 — Pipeline pregled
+  "QC → Combat integracija → anotacija ref.Rds → DE po tipu ćelije →
+   pathway UP/DOWN vs control → size-specific moduli → validacija."
+
+SLAJD 3 — QC + integracija
+  Slika: umap_condition.png
+  "Posle Combat korekcije uzorci se mešaju; tražimo biološke razlike po uslovu."
+
+SLAJD 4 — Anotacija
+  Slika: umap_celltypes_seurat.png + marker_dotplot.png
+  Slika: annotation_confusion_ref_codi_normalized.png
+  "Primarna anotacija ref.Rds; ~60% slaganja sa CoDi referencom."
+
+SLAJD 5 — Kompozicija
+  Slika: composition_barplot.png
+  "Blagi porast monocta kod 200 nm; dominantne T ćelije u svim uslovima."
+
+SLAJD 6 — DE (kratko)
+  Slika: 1 volcano (npr. Monocyte_CD14_PSNP_200nm_vs_control.png)
+  "Wilcoxon unutar tipa ćelije; hiljade značajnih gena po poređenju."
+
+SLAJD 7 — Pathway UP/DOWN vs control (STAVKA 3) ★
+  Slika: pathways_Monocyte_CD14_UP.png
+  Slika: pathways_Monocyte_CD14_DOWN.png
+  Tabela: pathway_enrichment_all.csv (pomenuti direction kolonu)
+  "40 nm UP inflamacija/citokini u monocytima; 200 nm DOWN istog programa.
+   Povezujemo sa potencijalnom imunomodulacijom nanoplastike."
+
+SLAJD 8 — Size-specific (opciono)
+  Slika: size_specific_counts_heatmap.png
+  Tabela: size_specific_interpretation.csv (1–2 reda za Monocyte shared_all_three)
+  "Core modul (973 gena u monocytima) + mix-only emergent efekat."
+
+SLAJD 9 — Module scores / antigen presentation (opciono)
+  Slika: antigen_presentation_heatmap.png
+  "Antigen presentation blago snižen; DC u mix-u raste — hipoteza za diskusiju."
+
+SLAJD 10 — Ograničenja
+  "Jedan donor, DE na HVG, nema pseudobulk statistike (samo export)."
+
+
+================================================================================
+5. BRZI REČNIK — ŠTA REĆI ZA SVAKU GLAVNU TABELU
+================================================================================
+
+differential_expression_all.csv
+  → Svi DE rezultati; svaki red = jedan gen u jednom poređenju i tipu ćelije.
+
+pathway_enrichment_all.csv
+  → Enrichr putevi; direction=UP/DOWN; comparison=40/200/mix vs control.
+
+pathway_enrichment_summary.csv
+  → Sažetak top puteva sa kratkom biološkom interpretacijom.
+
+size_specific_effects_summary.csv
+  → Koliko gena pada u svaku size klasu po tipu ćelije.
+
+size_specific_interpretation.csv
+  → Top geni + top putevi + gotov tekst interpretacije po klasi.
+
+cell_composition_by_condition.csv
+  → Broj i udeo ćelija po uslovu.
+
+annotation_agreement_metrics.csv
+  → Procenti slaganja između metoda anotacije.
+
+annotation_crosstab_ref_codi.csv
+  → Contingency: ref.Rds tip × CoDi tip (profesor tražio matricu).
+
+pseudobulk_counts_condition_celltype.csv
+  → Sabran count matrix za bulk analizu; mi nismo radili DESeq2.
+
+
+================================================================================
+6. OGRANIČENJA (uvek spomenuti na kraju)
+================================================================================
+
+1) Jedan biološki donor — nema replikacije između donor-a; p-vrednosti su
+   unutar-uzorka, ne klasična inferenca između nezavisnih bioloških replika.
+
+2) DE i pathway enrichment rade na 3000 HVG — neki markeri van HVG nisu u DE.
+
+3) Module scores koriste pun genom — nisu ograničeni na HVG.
+
+4) DC i retki tipovi imaju malo ćelija — DE/pathway manje pouzdani.
+
+5) KEGG pathway nazivi bolesti ≠ klinička dijagnoza.
+
+6) Pseudobulk je pripremljen ali nije statistički testiran u ovom projektu.
+
+
+================================================================================
+7. GDE JE ŠTA NA GITHUB-u / LOKALNO
+================================================================================
+
+Kod i config:           scripts/, config/config.yaml
+Sve tabele:             results/tables/
+Sve slike:              results/figures/ (+ pathway_enrichment/, supplementary/)
+Prezentacija:           deliverables/Nanoplastics_scRNAseq_Presentation (3).pptx
+Ovaj vodič:             deliverables/Vodic_za_odbranu_pipeline_i_rezultati.txt
+Log poslednjeg run-a:   results/run_logs/ (najnoviji .log fajl)
+
+
+================================================================================
+KRAJ — srećna odbrana!
+================================================================================
